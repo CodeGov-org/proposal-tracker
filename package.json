@@ -6,6 +6,7 @@
   "name": "proposal_tracker",
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "lint": "npx eslint --fix",
     "prebuild": "npm run prebuild --workspaces --if-present",
     "prepare": "husky install",
     "pretest": "npm run prebuild --workspaces --if-present",
@@ -20,6 +21,7 @@
   ],
   "devDependencies": {
     "eslint": "latest",
+    "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "latest",
     "husky": "latest",
     "prettier": "latest"
