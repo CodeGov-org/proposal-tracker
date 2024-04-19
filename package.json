@@ -7,6 +7,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "prebuild": "npm run prebuild --workspaces --if-present",
+    "prepare": "husky install",
     "pretest": "npm run prebuild --workspaces --if-present",
     "start": "npm start --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
@@ -18,6 +19,7 @@
     "src/proposal_tracker_frontend"
   ],
   "devDependencies": {
+    "husky": "^9.0.11",
     "prettier": "^3.2.5"
   }
 }
