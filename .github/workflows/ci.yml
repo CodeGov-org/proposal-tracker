@@ -23,9 +23,9 @@ jobs:
         uses: dfinity/setup-dfx@main
       - name: "install mops packages"
         run: |
-          npm i -g ic-mops
-          mops toolchain use moc latest
+          npm i -g ic-mops      
           mops install
+          mops toolchain use moc latest
       - name: "run backend tests"
         run: mops test
       - name: "run frontend tests"
