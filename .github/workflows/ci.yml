@@ -24,9 +24,8 @@ jobs:
       - name: "install mops packages"
         run: |
           npm i -g ic-mops
+          mops toolchain use moc latest
           mops install
-      - name: "install moc"
-        run: mops toolchain use moc latest
       - name: "run backend tests"
         run: mops test
       - name: "run frontend tests"
