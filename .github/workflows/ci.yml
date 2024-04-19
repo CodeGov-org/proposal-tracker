@@ -1,0 +1,35 @@
+name: "test"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: npm clean-install
+      - name: "check format"
+        run: npm run format:check
+      - name: "audit"
+        run: npm audit
+      - name: "install dfx"
+        uses: dfinity/setup-dfx@main
+      - name: "install mops packages"
+        run: |
+          npm i -g ic-mops      
+          mops install
+      - name: "run backend tests"
+        run: mops test
+      - name: "run frontend tests"
+        run: |
+          dfx start --background
+          dfx deploy
+          npm start & npm test
+          dfx stop

@@ -25,7 +25,6 @@
   "private": true,
   "scripts": {
     "build": "tsc && vite build",
-    "format": "prettier --write \"src/**/*.{json,js,jsx,ts,tsx,css,scss}\"",
     "prebuild": "dfx generate",
     "setup": "npm i && dfx canister create proposal_tracker_backend && dfx generate proposal_tracker_backend && dfx deploy",
     "start": "vite --port 3000",
