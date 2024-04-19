@@ -15,8 +15,8 @@ jobs:
         with:
           node-version: 18
       - run: npm clean-install
-      - name: "check prettier"
-        run: npm run prettier:check
+      - name: "check format"
+        run: npm run format:check
       - name: "audit"
         run: npm audit
       - name: "install dfx"
@@ -27,7 +27,7 @@ jobs:
         run: |
           npm i -g ic-mops
           mops install
-      - name: "run frontend tests"
-        run: npm test
       - name: "run backend tests"
         run: mops test
+      - name: "run frontend tests"
+        run: npm start & npm test
