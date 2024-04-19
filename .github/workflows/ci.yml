@@ -21,12 +21,12 @@ jobs:
         run: npm audit
       - name: "install dfx"
         uses: dfinity/setup-dfx@main
-      - name: "install moc"
-        run: mops toolchain use moc latest
       - name: "install mops packages"
         run: |
           npm i -g ic-mops
           mops install
+      - name: "install moc"
+        run: mops toolchain use moc latest
       - name: "run backend tests"
         run: mops test
       - name: "run frontend tests"
