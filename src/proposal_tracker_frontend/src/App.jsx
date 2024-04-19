@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { proposal_tracker_backend } from 'declarations/proposal_tracker_backend';
+import { useState } from "react";
+import { proposal_tracker_backend } from "declarations/proposal_tracker_backend";
 
 function App() {
-  const [greeting, setGreeting] = useState('');
+  const [greeting, setGreeting] = useState("");
 
   function handleSubmit(event) {
     event.preventDefault();
