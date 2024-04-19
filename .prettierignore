@@ -1,0 +1,11 @@
+# artifacts
+build
+coverage
+
+# dfx temporary files
+.dfx
+src/declarations/
+
+# packages
+.mops
+dist

@@ -9,10 +9,15 @@
     "prebuild": "npm run prebuild --workspaces --if-present",
     "pretest": "npm run prebuild --workspaces --if-present",
     "start": "npm start --workspaces --if-present",
-    "test": "npm test --workspaces --if-present"
+    "test": "npm test --workspaces --if-present",
+    "format": "npx prettier . --write",
+    "format:check": "npx prettier . --check"
   },
   "type": "module",
   "workspaces": [
     "src/proposal_tracker_frontend"
-  ]
+  ],
+  "devDependencies": {
+    "prettier": "^3.2.5"
+  }
 }
