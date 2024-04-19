@@ -32,5 +32,5 @@ jobs:
         run: |
           dfx start --background
           dfx deploy
-          npm test
+          npm start & npm test
           dfx stop
