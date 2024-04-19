@@ -29,4 +29,6 @@ jobs:
       - name: "run backend tests"
         run: mops test
       - name: "run frontend tests"
-        run: npm start & npm test
+        run: |
+          dfx generate
+          npm start & npm test
