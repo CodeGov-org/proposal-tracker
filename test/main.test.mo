@@ -1,4 +1,4 @@
-import { test; suite } "mo:test/async";
+import { test; suite; expect } "mo:test/async";
 import Main "../src/proposal_tracker_backend/main";
 
 let mainActor = await Main.ProposalTrackerBackend();
@@ -10,7 +10,7 @@ await suite(
             "it greets you",
             func() : async () {
                 let result = await mainActor.greet("Alice");
-                assert result == "Hello, Alice!";
+                expect.text(result).equal("Hello, Alice!");
             },
         );
     },
