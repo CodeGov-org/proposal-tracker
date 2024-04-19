@@ -16,8 +16,12 @@
       "type": "motoko"
     },
     "proposal_tracker_frontend": {
-      "dependencies": ["proposal_tracker_backend"],
-      "source": ["src/proposal_tracker_frontend/dist"],
+      "dependencies": [
+        "proposal_tracker_backend"
+      ],
+      "source": [
+        "src/proposal_tracker_frontend/dist"
+      ],
       "type": "assets",
       "workspace": "proposal_tracker_frontend"
     }
@@ -25,7 +29,7 @@
   "defaults": {
     "build": {
       "args": "",
-      "packtool": ""
+      "packtool": "mops sources"
     }
   },
   "output_env_file": ".env",
