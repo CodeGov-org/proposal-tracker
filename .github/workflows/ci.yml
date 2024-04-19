@@ -31,5 +31,6 @@ jobs:
       - name: "run frontend tests"
         run: |
           dfx start --background
-          dfx stop
+          dfx deploy
           npm start & npm test
+          dfx stop
