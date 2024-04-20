@@ -1,1 +1,4 @@
-{}
+{
+  "plugins": ["prettier-plugin-tailwindcss"],
+  "tailwindConfig": "./src/proposal_tracker_frontend/tailwind.config.js"
+}
