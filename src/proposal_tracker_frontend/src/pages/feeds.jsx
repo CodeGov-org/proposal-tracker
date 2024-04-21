@@ -4,7 +4,7 @@ const Feeds = () => {
   return (
     <div>
       <Navbar></Navbar>
-      <div className="container mx-auto columns-3">
+      <div className="container mx-auto mt-4 grid grid-cols-3 gap-4">
         <div class="block max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
           <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900">
             Proposal 129379
@@ -20,7 +20,7 @@ const Feeds = () => {
           </p>
         </div>
 
-        <div class="mt-6 block max-w-sm break-inside-avoid-column rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
+        <div class="block max-w-sm break-inside-avoid-column rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
           <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900">
             Proposal 129378
           </h5>
@@ -35,7 +35,7 @@ const Feeds = () => {
           </p>
         </div>
 
-        <div class="mt-6 block max-w-sm break-inside-avoid-column rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
+        <div class="block max-w-sm break-inside-avoid-column rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
           <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900">
             Proposal 129377
           </h5>
@@ -50,7 +50,7 @@ const Feeds = () => {
           </p>
         </div>
 
-        <div class="mt-6 block max-w-sm break-inside-avoid-column rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
+        <div class="block max-w-sm break-inside-avoid-column rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
           <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900">
             Proposal 129376
           </h5>
@@ -65,7 +65,7 @@ const Feeds = () => {
           </p>
         </div>
 
-        <div class="mt-6 block max-w-sm break-inside-avoid-column rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
+        <div class="block max-w-sm break-inside-avoid-column rounded-lg border border-gray-200 bg-white p-6 shadow hover:bg-gray-100">
           <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900">
             Proposal 129375
           </h5>

@@ -1,21 +1,27 @@
 import { useState } from "react";
 
+const Logo = () => {
+  return (
+    <a href="/" className="flex items-center space-x-3">
+      <img src="/codegov-logo.png" className="h-10" alt="Codegov Logo" />
+      <span className="whitespace-nowrap text-2xl font-semibold">
+        Proposal Tracker
+      </span>
+    </a>
+  );
+};
+
 const Navbar = () => {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
-    <nav className="border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-screen-xl flex-wrap items-center justify-between p-4">
-        <a href="/" className="flex items-center space-x-3">
-          <img src="/codegov-logo.png" className="h-8" alt="Codegov Logo" />
-          <span className="self-center whitespace-nowrap text-2xl font-semibold">
-            Proposal Tracker
-          </span>
-        </a>
+    <nav className="border-b-2 border-b-secondary">
+      <div className="mx-auto flex flex-wrap items-center justify-between p-4">
+        <Logo></Logo>
         <div className="flex space-x-3 md:order-2 md:space-x-0">
           <button
             type="button"
-            className="rounded-lg bg-blue-700 px-4 py-2 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300"
+            className="rounded-lg bg-primary px-4 py-2 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300"
           >
             Login
           </button>
@@ -48,6 +54,7 @@ const Navbar = () => {
             </svg>
           </button>
         </div>
+
         <div
           className={`${showMenu ? "" : "hidden"} w-full items-center justify-between md:order-1 md:flex md:w-auto`}
           id="navbar-cta"
