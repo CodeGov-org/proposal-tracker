@@ -5,8 +5,10 @@ import Timer "mo:base/Timer";
 import ProposalService "ProposalService";
 import G "./GovernanceTypes";
 import PT "./ProposalTypes";
+import Prng "mo:prng";
 
 let DEFAULT_TICKRATE : Nat = 60 * 60 * 1000; // 1 hour 
+let NNS_GOVERNANCE_ID = "rrkah-fqaaa-aaaaa-aaaaq-cai";
 
 module {
 
@@ -52,6 +54,7 @@ module {
                         return true;
                     };
                 });
+
                 //update service data. TODO: Move to repo
                 for (proposal in newProposals){
                     let found = Array.find(serviceData.proposals.vals(), func(p) : Bool{
@@ -59,7 +62,6 @@ module {
                     });
 
                     switch(found){
-                        //invariant
                         case(?p){
                             p.status := proposal.status;
                         };
@@ -70,18 +72,39 @@ module {
                 };
 
                 //run jobs
-                for (job in self.jobs.vals()){
-                    job(serviceData, newProposals);
+                for (job in self.jobs){
+                    job.f(serviceData, newProposals);
                 };
             }
         });
      };
 
-     public func addJob(self : PT.ProposalService, job : PT.ProposalJob) : async* () {
-        self.jobs := Array.append(jobs, job);
+     public func addJob(self : PT.ProposalService, job : { description : ?Text; f : (ServiceData, [Proposal]) -> ()}) : () {
+        let rng = Prng.Seiran128();
+        rng.init(Time.now());
+        self.jobs := Array.append(jobs, {id = rng.next(); description = job.description; f = job.f});
      };
 
-    //  public func addService(servicePrincipal : Principal, topics : ?[Nat]) : async* Result.Result<(), Text> {
+     public func addService(self: PT.ProposalService, servicePrincipal : Principal, topics : ?[Nat]) : async* Result.Result<(), Text> {
+        var name = "NNS";
+        if(servicePrincipal != NNS_GOVERNANCE_ID){
+            //verify canister exists and is a governance canister
+            let gc : G.GovernanceCanister = actor(servicePrincipal);
+            try {
+                name := await gc.get_metadata();
+            } catch(e){
+                return #err("Not a governance canister");
+            };   
+        };
 
-    //  };
+
+        //TODO Validate topics?
+        self.services.put(servicePrincipal, {
+            topics = Option.get(topics, []);
+            name = ?name;
+            proposals = [];
+            lastId = 0;
+        });
+
+     };
 }

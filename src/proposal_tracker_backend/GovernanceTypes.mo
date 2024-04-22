@@ -636,6 +636,7 @@ module {
     current_deadline_timestamp_seconds : Nat64;
   };
   public type GovernanceCanister =  actor {
+    //NNS
     claim_gtc_neurons : shared (Principal, [NeuronId]) -> async Result;
     claim_or_refresh_neuron_from_account : shared ClaimOrRefreshNeuronFromAccount -> async ClaimOrRefreshNeuronFromAccountResponse;
     get_build_metadata : shared query () -> async Text;
@@ -663,5 +664,8 @@ module {
     simulate_manage_neuron : shared ManageNeuron -> async ManageNeuronResponse;
     transfer_gtc_neuron : shared (NeuronId, NeuronId) -> async Result;
     update_node_provider : shared UpdateNodeProvider -> async Result;
+
+    //SNS
+    get_metadata: shared query () -> async ( {url: ?Text; logo:?Text; name:?Text; description:?Text})
   }
 }
