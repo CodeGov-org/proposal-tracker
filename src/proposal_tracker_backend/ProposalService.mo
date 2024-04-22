@@ -33,7 +33,7 @@ module {
         self.timerId := await Timer.setTimer(tickrate, func() : async(){
             for ((canisterId, serviceData) in self.services.entries()) {
                 let gc : G.GovernanceCanister = actor (canisterId);
-                let newProposals = gc.list_proposals({
+                var newProposals = await gc.list_proposals({
                     include_reward_status = [];
                     omit_large_fields = ?true;
                     before_proposal = null;
@@ -45,6 +45,7 @@ module {
                 //process delta
                 newProposals := Array.filter(newProposals, func(proposal) : Bool{
                     for (p in serviceData.proposals.vals()){
+                        //filter proposal already in the list which have not changed
                         if(p.id == proposal.id and p.status == proposal.status){
                             return false;
                         };
