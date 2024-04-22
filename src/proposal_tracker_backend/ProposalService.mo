@@ -53,17 +53,19 @@ module {
                     };
                 });
                 //update service data. TODO: Move to repo
-                for (oldProposal in serviceData.proposals.vals()){
-                    let found = Array.find(newProposals, func(p) : Bool{
-                        p.id == oldProposal.id
+                for (proposal in newProposals){
+                    let found = Array.find(serviceData.proposals.vals(), func(p) : Bool{
+                        p.id == proposal.id
                     });
 
                     switch(found){
                         //invariant
                         case(?p){
-                            oldProposal.status := p.status;
+                            p.status := proposal.status;
                         };
-                        case(null){}
+                        case(null){
+                            serviceData.proposals := Array.append(serviceData.proposals, proposal);
+                        }
                     }
                 };
 
