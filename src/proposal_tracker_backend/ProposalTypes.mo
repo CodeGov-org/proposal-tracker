@@ -6,7 +6,7 @@ module {
         id : Nat;
         title : Text;
         description : ?Text;
-        proposer : Principal;
+        proposer : TextPrincipal;
         timestamp : Time.Time;
         status : { #Pending; #Approved; #Rejected };
     };
@@ -24,10 +24,11 @@ module {
         f : (ServiceData, [Proposal]) -> ();
     };
 
+    public type TextPrincipal = Text;
     public type ProposalService = {
-        services : Map.Map<Principal, ServiceData>;
-        tickrate : Nat;
-        timerId : ?Nat;
-        jobs : [ProposalJob];
+        services : Map.Map<TextPrincipal, ServiceData>;
+        var tickrate : Nat;
+        var timerId : ?Nat;
+        var jobs : [ProposalJob];
     };
 }

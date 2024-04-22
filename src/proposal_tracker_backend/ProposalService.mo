@@ -1,27 +1,31 @@
 import Map "mo:map/Map";
+import Option "mo:base/Option";
 import Time "mo:base/Time";
+import Array "mo:base/Array";
 import Result "mo:base/Result";
 import Timer "mo:base/Timer";
-import ProposalService "ProposalService";
 import G "./GovernanceTypes";
 import PT "./ProposalTypes";
 import Prng "mo:prng";
+import Nat64 "mo:base/Nat64";
 
-let DEFAULT_TICKRATE : Nat = 60 * 60 * 1000; // 1 hour 
+let DEFAULT_TICKRATE : Nat = 10_000; // 10 secs 
 let NNS_GOVERNANCE_ID = "rrkah-fqaaa-aaaaa-aaaaq-cai";
 
 module {
 
      public func init() : PT.ProposalService {
         {
-            services = Map.new<Principal, PT.ServiceData>();
-            tickrate = DEFAULT_TICKRATE;
+            services = Map.new< PT.TextPrincipal, PT.ServiceData>();
+            var tickrate = DEFAULT_TICKRATE;
+            var timerId = null;
+            var jobs = [];
         }
      };
 
      public func initTimer(self : PT.ProposalService, job : ?PT.ProposalJob) : async* () {
 
-        switch(timerId){
+        switch(self.timerId){
           case(?t){ return};
           case(_){};
         };
@@ -32,8 +36,8 @@ module {
           };
         };
 
-        self.timerId := await Timer.setTimer(tickrate, func() : async(){
-            for ((canisterId, serviceData) in self.services.entries()) {
+        self.timerId := await Timer.setTimer(#seconds(self.tickrate), func() : async (){
+            for ((canisterId, serviceData) in Map.entries(self.services)) {
                 let gc : G.GovernanceCanister = actor (canisterId);
                 var newProposals = await gc.list_proposals({
                     include_reward_status = [];
@@ -79,19 +83,20 @@ module {
         });
      };
 
-     public func addJob(self : PT.ProposalService, job : { description : ?Text; f : (ServiceData, [Proposal]) -> ()}) : () {
+     public func addJob(self : PT.ProposalService, job : { description : ?Text; f : (PT.ServiceData, [PT.Proposal]) -> ()}) : () {
         let rng = Prng.Seiran128();
-        rng.init(Time.now());
-        self.jobs := Array.append(jobs, {id = rng.next(); description = job.description; f = job.f});
+       //rng.init(Nat64.fromNat(Time.now()));
+        rng.init(0);
+        self.jobs := Array.append(self.jobs, {id = rng.next(); description = job.description; f = job.f});
      };
 
-     public func addService(self: PT.ProposalService, servicePrincipal : Principal, topics : ?[Nat]) : async* Result.Result<(), Text> {
+     public func addService(self: PT.ProposalService, servicePrincipal : PT.TextPrincipal, topics : ?[Nat]) : async* Result.Result<(), Text> {
         var name = "NNS";
         if(servicePrincipal != NNS_GOVERNANCE_ID){
             //verify canister exists and is a governance canister
             let gc : G.GovernanceCanister = actor(servicePrincipal);
             try {
-                name := await gc.get_metadata();
+                name := Option.get(await gc.get_metadata().name, "");
             } catch(e){
                 return #err("Not a governance canister");
             };   
@@ -99,12 +104,13 @@ module {
 
 
         //TODO Validate topics?
-        self.services.put(servicePrincipal, {
+        Map.put(self.services, servicePrincipal, {
             topics = Option.get(topics, []);
             name = ?name;
             proposals = [];
             lastId = 0;
         });
 
+        #ok()
      };
 }
