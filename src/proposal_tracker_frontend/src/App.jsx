@@ -27,7 +27,7 @@ function App() {
   };
 
   useEffect(() => {
-    checkAndRecoverLogin(updateLoginInfo);
+    if (!process.env.VITEST) checkAndRecoverLogin(updateLoginInfo);
   }, []);
 
   return (
