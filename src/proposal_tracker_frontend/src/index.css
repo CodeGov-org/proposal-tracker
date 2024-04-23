@@ -5,5 +5,5 @@
 @tailwind utilities;
 
 body {
-  color: theme("textColor.primary");
+  color: theme("textColor.secondary");
 }

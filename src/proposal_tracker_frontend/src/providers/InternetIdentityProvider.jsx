@@ -54,5 +54,5 @@ export const handleLogout = async (updateLoginInfo) => {
     await authClient.logout();
   }
 
-  updateLoginInfo({});
+  updateLoginInfo("");
 };

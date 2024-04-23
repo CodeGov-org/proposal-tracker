@@ -11,9 +11,17 @@ function App() {
   const [backendActor, setBackendActor] = useState(proposal_tracker_backend);
 
   const updateLoginInfo = (loggedWith, principal, backendActor) => {
+    // handle logout
+    if (loggedWith === "") {
+      setLoginInfo({});
+      setBackendActor(proposal_tracker_backend);
+      setRoute("feeds");
+      return;
+    }
+
+    // handle login
     setLoginInfo({ loggedWith, principal });
     setBackendActor(backendActor);
-
     setRoute("adminDashboard");
   };
 
