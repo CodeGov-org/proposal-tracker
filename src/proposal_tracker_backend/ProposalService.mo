@@ -40,7 +40,7 @@ module {
           };
         };
 
-        self.timerId :=  ?Timer.setTimer<system>(#seconds(self.tickrate), func() : async () {
+        self.timerId :=  ?Timer.recurringTimer<system>(#seconds(self.tickrate), func() : async () {
             Debug.print("Tick");
             for ((canisterId, serviceData) in Map.entries(self.services)) {
                 let gc : G.GovernanceCanister = actor (canisterId);
