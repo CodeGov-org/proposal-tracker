@@ -11,10 +11,11 @@ import PM "./ProposalMappings";
 import Fuzz "mo:fuzz";
 import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
+import Debug "mo:base/Debug";
 
 module {
 
-    let DEFAULT_TICKRATE : Nat = 10_000; // 10 secs 
+    let DEFAULT_TICKRATE : Nat = 10; // 10 secs 
     let NNS_GOVERNANCE_ID = "rrkah-fqaaa-aaaaa-aaaaq-cai";
 
      public func init() : PT.ProposalService {
@@ -26,10 +27,10 @@ module {
         }
      };
 
-     public func initTimer<system>(self : PT.ProposalService, job : ?PT.ProposalServiceJob) : async* () {
+     public func initTimer<system>(self : PT.ProposalService, job : ?PT.ProposalServiceJob) : async* Result.Result<(), Text> {
 
         switch(self.timerId){
-          case(?t){ return};
+          case(?t){ return #err("Timer already created")};
           case(_){};
         };
 
@@ -40,6 +41,7 @@ module {
         };
 
         self.timerId :=  ?Timer.setTimer<system>(#seconds(self.tickrate), func() : async () {
+            Debug.print("Tick");
             for ((canisterId, serviceData) in Map.entries(self.services)) {
                 let gc : G.GovernanceCanister = actor (canisterId);
                 let res = await gc.list_proposals({
@@ -76,6 +78,8 @@ module {
                 };
             }
         });
+
+        return #ok()
      };
 
      public func addJob(self : PT.ProposalService, job : PT.ProposalServiceJob) : () {
