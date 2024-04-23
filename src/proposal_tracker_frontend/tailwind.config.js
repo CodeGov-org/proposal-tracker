@@ -9,7 +9,11 @@ export default {
         sans: ["Work Sans", ...defaultTheme.fontFamily.sans],
       },
       colors: {
-        primary: "#0099CC", // codegov blue
+        primary: {
+          light: "#b8edff",
+          DEFAULT: "#0099CC",
+          hover: "#0086b3",
+        }, // codegov blue
         secondary: "#0f172a", // codegov dark blue
       },
       textColor: {

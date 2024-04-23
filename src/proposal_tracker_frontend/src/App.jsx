@@ -1,12 +1,28 @@
 import { useState } from "react";
-import Feeds from "./pages/feeds";
-// import { proposal_tracker_backend } from "declarations/proposal_tracker_backend";
+import { LoginContext } from "./context/LoginContext";
+import { proposal_tracker_backend } from "declarations/proposal_tracker_backend";
+import Feeds from "./pages/Feeds";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
-  // eslint-disable-next-line no-unused-vars
   const [route, setRoute] = useState("feeds"); // "feed" -> "login" -> "admin" -> "feed-edit"
+  const [loginInfo, setLoginInfo] = useState({});
+  // eslint-disable-next-line no-unused-vars
+  const [backendActor, setBackendActor] = useState(proposal_tracker_backend);
 
-  return <>{route === "feeds" && <Feeds></Feeds>}</>;
+  const updateLoginInfo = (loggedWith, principal, backendActor) => {
+    setLoginInfo({ loggedWith, principal });
+    setBackendActor(backendActor);
+
+    setRoute("adminDashboard");
+  };
+
+  return (
+    <LoginContext.Provider value={{ loginInfo, updateLoginInfo }}>
+      {route === "feeds" && <Feeds></Feeds>}
+      {route === "adminDashboard" && <AdminDashboard></AdminDashboard>}
+    </LoginContext.Provider>
+  );
 }
 
 export default App;

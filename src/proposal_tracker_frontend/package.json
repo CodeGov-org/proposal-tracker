@@ -1,12 +1,14 @@
 {
   "dependencies": {
     "@dfinity/agent": "latest",
+    "@dfinity/auth-client": "latest",
     "@dfinity/candid": "latest",
     "@dfinity/principal": "latest",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@heroicons/react": "latest",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
     "@types/react": "latest",

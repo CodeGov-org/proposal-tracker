@@ -1,4 +1,11 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
+import { LoginContext } from "../context/LoginContext";
+import { Bars3Icon } from "@heroicons/react/24/solid";
+import { PrimaryButton } from "./Buttons";
+import {
+  handleLogin,
+  handleLogout,
+} from "../providers/InternetIdentityProvider";
 
 const Logo = () => {
   return (
@@ -13,18 +20,24 @@ const Logo = () => {
 
 const Navbar = () => {
   const [showMenu, setShowMenu] = useState(false);
+  const { loginInfo, updateLoginInfo } = useContext(LoginContext);
 
   return (
     <nav className="border-b-2 border-b-secondary">
       <div className="mx-auto flex flex-wrap items-center justify-between p-4">
         <Logo></Logo>
         <div className="flex space-x-3 md:order-2 md:space-x-0">
-          <button
-            type="button"
-            className="rounded-lg bg-primary px-4 py-2 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300"
-          >
-            Login
-          </button>
+          {loginInfo.principal ? (
+            <PrimaryButton
+              text="Logout"
+              onClick={() => handleLogout(updateLoginInfo)}
+            ></PrimaryButton>
+          ) : (
+            <PrimaryButton
+              text="Login"
+              onClick={() => handleLogin(updateLoginInfo)}
+            ></PrimaryButton>
+          )}
           <button
             id="menu"
             data-collapse-toggle="navbar-cta"
@@ -37,21 +50,7 @@ const Navbar = () => {
             }}
           >
             <span className="sr-only">Open main menu</span>
-            <svg
-              className="h-5 w-5"
-              aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 17 14"
-            >
-              <path
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M1 1h15M1 7h15M1 13h15"
-              />
-            </svg>
+            <Bars3Icon></Bars3Icon>
           </button>
         </div>
 
