@@ -29,6 +29,16 @@ export const handleLogin = async (updateLoginInfo) => {
   }
 };
 
+export const checkAndRecoverLogin = async (updateLoginInfo) => {
+  // Login with II provider
+  const authClient = await AuthClient.create();
+
+  // handle already authenticated case
+  if (await authClient.isAuthenticated()) {
+    await handleAuthenticated(authClient, updateLoginInfo);
+  }
+};
+
 const handleAuthenticated = async (authClient, updateLoginInfo) => {
   const identity = await authClient.getIdentity();
   const agent = new HttpAgent({ identity });

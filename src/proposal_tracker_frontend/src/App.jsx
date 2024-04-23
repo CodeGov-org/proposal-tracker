@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LoginContext } from "./context/LoginContext";
 import { proposal_tracker_backend } from "declarations/proposal_tracker_backend";
 import Feeds from "./pages/Feeds";
 import AdminDashboard from "./pages/AdminDashboard";
+import { checkAndRecoverLogin } from "./providers/InternetIdentityProvider";
 
 function App() {
   const [route, setRoute] = useState("feeds"); // "feed" -> "login" -> "admin" -> "feed-edit"
@@ -24,6 +25,10 @@ function App() {
     setBackendActor(backendActor);
     setRoute("adminDashboard");
   };
+
+  useEffect(() => {
+    checkAndRecoverLogin(updateLoginInfo);
+  }, []);
 
   return (
     <LoginContext.Provider value={{ loginInfo, updateLoginInfo }}>
