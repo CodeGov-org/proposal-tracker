@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { LoginContext } from "./context/LoginContext";
 import { proposal_tracker_backend } from "declarations/proposal_tracker_backend";
-import Feeds from "./pages/Feeds";
 import AdminDashboard from "./pages/AdminDashboard";
+import Feeds from "./pages/Feeds";
 
 function App() {
   const [route, setRoute] = useState("feeds"); // "feed" -> "login" -> "admin" -> "feed-edit"
