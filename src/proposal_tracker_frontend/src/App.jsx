@@ -1,30 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { LoginContext } from "./context/LoginContext";
 import { proposal_tracker_backend } from "declarations/proposal_tracker_backend";
+import Feeds from "./pages/Feeds";
+import AdminDashboard from "./pages/AdminDashboard";
+import { checkAndRecoverLogin } from "./providers/InternetIdentityProvider";
 
 function App() {
-  const [greeting, setGreeting] = useState("");
+  const [route, setRoute] = useState("feeds"); // "feed" -> "login" -> "admin" -> "feed-edit"
+  const [loginInfo, setLoginInfo] = useState({});
+  // eslint-disable-next-line no-unused-vars
+  const [backendActor, setBackendActor] = useState(proposal_tracker_backend);
 
-  function handleSubmit(event) {
-    event.preventDefault();
-    const name = event.target.elements.name.value;
-    proposal_tracker_backend.greet(name).then((greeting) => {
-      setGreeting(greeting);
-    });
-    return false;
-  }
+  const updateLoginInfo = (loggedWith, principal, backendActor) => {
+    // handle logout
+    if (loggedWith === "") {
+      setLoginInfo({});
+      setBackendActor(proposal_tracker_backend);
+      setRoute("feeds");
+      return;
+    }
+
+    // handle login
+    setLoginInfo({ loggedWith, principal });
+    setBackendActor(backendActor);
+    setRoute("adminDashboard");
+  };
+
+  useEffect(() => {
+    if (!process.env.VITEST) checkAndRecoverLogin(updateLoginInfo);
+  }, []);
 
   return (
-    <main>
-      <img src="/logo2.svg" alt="DFINITY logo" />
-      <br />
-      <br />
-      <form action="#" onSubmit={handleSubmit}>
-        <label htmlFor="name">Enter your name: &nbsp;</label>
-        <input id="name" alt="Name" type="text" />
-        <button type="submit">Click Me!</button>
-      </form>
-      <section id="greeting">{greeting}</section>
-    </main>
+    <LoginContext.Provider value={{ loginInfo, updateLoginInfo }}>
+      {route === "feeds" && <Feeds></Feeds>}
+      {route === "adminDashboard" && <AdminDashboard></AdminDashboard>}
+    </LoginContext.Provider>
   );
 }
 

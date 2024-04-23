@@ -24,6 +24,7 @@ export default [
       ...reactRecommended.languageOptions,
       globals: {
         ...globals.browser,
+        ...globals.node,
       },
     },
     rules: {
