@@ -1,4 +1,5 @@
 import Map "mo:map/Map";
+import { nhash; thash } "mo:map/Map";
 import Option "mo:base/Option";
 import Time "mo:base/Time";
 import Array "mo:base/Array";
@@ -6,13 +7,15 @@ import Result "mo:base/Result";
 import Timer "mo:base/Timer";
 import G "./GovernanceTypes";
 import PT "./ProposalTypes";
-import Prng "mo:prng";
+import PM "./ProposalMappings";
+import Fuzz "mo:fuzz";
 import Nat64 "mo:base/Nat64";
-
-let DEFAULT_TICKRATE : Nat = 10_000; // 10 secs 
-let NNS_GOVERNANCE_ID = "rrkah-fqaaa-aaaaa-aaaaq-cai";
+import Nat "mo:base/Nat";
 
 module {
+
+    let DEFAULT_TICKRATE : Nat = 10_000; // 10 secs 
+    let NNS_GOVERNANCE_ID = "rrkah-fqaaa-aaaaa-aaaaq-cai";
 
      public func init() : PT.ProposalService {
         {
@@ -23,7 +26,7 @@ module {
         }
      };
 
-     public func initTimer(self : PT.ProposalService, job : ?PT.ProposalJob) : async* () {
+     public func initTimer<system>(self : PT.ProposalService, job : ?PT.ProposalServiceJob) : async* () {
 
         switch(self.timerId){
           case(?t){ return};
@@ -36,10 +39,10 @@ module {
           };
         };
 
-        self.timerId := await Timer.setTimer(#seconds(self.tickrate), func() : async (){
+        self.timerId :=  ?Timer.setTimer<system>(#seconds(self.tickrate), func() : async () {
             for ((canisterId, serviceData) in Map.entries(self.services)) {
                 let gc : G.GovernanceCanister = actor (canisterId);
-                var newProposals = await gc.list_proposals({
+                let res = await gc.list_proposals({
                     include_reward_status = [];
                     omit_large_fields = ?true;
                     before_proposal = null;
@@ -47,68 +50,63 @@ module {
                     exclude_topic = [];
                     include_all_manage_neuron_proposals = null;
                     include_status = [];
-                })
-                //process delta
-                newProposals := Array.filter(newProposals, func(proposal) : Bool{
-                    for (p in serviceData.proposals.vals()){
-                        //filter proposal already in the list which have not changed
-                        if(p.id == proposal.id and p.status == proposal.status){
-                            return false;
-                        };
-                        return true;
-                    };
                 });
 
-                //update service data. TODO: Move to repo
-                for (proposal in newProposals){
-                    let found = Array.find(serviceData.proposals.vals(), func(p) : Bool{
-                        p.id == proposal.id
+                //process delta
+                let newProposals = PM.mapGetProposals(res.proposal_info) |>
+                    Array.filter(_, func(proposal: PT.Proposal ) : Bool{
+                        for (p in Map.vals(serviceData.proposals)){
+                            //filter proposal already in the list which have not changed
+                            if(p.id == proposal.id and p.status == proposal.status){
+                                return false;
+                            };
+                            return true;
+                        };
+                        return true;
                     });
 
-                    switch(found){
-                        case(?p){
-                            p.status := proposal.status;
-                        };
-                        case(null){
-                            serviceData.proposals := Array.append(serviceData.proposals, proposal);
-                        }
-                    }
+                //update service data. TODO: Move to repo
+                for (proposal in Array.vals(newProposals)){
+                    Map.set(serviceData.proposals, nhash, proposal.id, proposal);
                 };
 
                 //run jobs
-                for (job in self.jobs){
-                    job.f(serviceData, newProposals);
+                for (job in Array.vals(self.jobs)){
+                    job.task(serviceData, newProposals);
                 };
             }
         });
      };
 
-     public func addJob(self : PT.ProposalService, job : { description : ?Text; f : (PT.ServiceData, [PT.Proposal]) -> ()}) : () {
-        let rng = Prng.Seiran128();
-       //rng.init(Nat64.fromNat(Time.now()));
-        rng.init(0);
-        self.jobs := Array.append(self.jobs, {id = rng.next(); description = job.description; f = job.f});
+     public func addJob(self : PT.ProposalService, job : PT.ProposalServiceJob) : () {
+        let fuzz = Fuzz.fromSeed(0);
+        self.jobs := Array.append(self.jobs, [{id = fuzz.nat.random(); description = job.description; task = job.task}]);
      };
 
      public func addService(self: PT.ProposalService, servicePrincipal : PT.TextPrincipal, topics : ?[Nat]) : async* Result.Result<(), Text> {
         var name = "NNS";
+        //NNS has no get_metadata method, plus its id never changes 
         if(servicePrincipal != NNS_GOVERNANCE_ID){
             //verify canister exists and is a governance canister
             let gc : G.GovernanceCanister = actor(servicePrincipal);
             try {
-                name := Option.get(await gc.get_metadata().name, "");
+                let res = await gc.get_metadata();
+                name := Option.get(res.name, "");
             } catch(e){
                 return #err("Not a governance canister");
             };   
         };
 
+        if(Map.has(self.services, thash, servicePrincipal)){
+            return #err("Service already exists");
+        };
 
         //TODO Validate topics?
-        Map.put(self.services, servicePrincipal, {
+        ignore Map.put(self.services, thash, servicePrincipal, {
             topics = Option.get(topics, []);
             name = ?name;
-            proposals = [];
-            lastId = 0;
+            proposals = Map.new<PT.ProposalId, PT.Proposal>();
+            lastProposalId = 0;
         });
 
         #ok()

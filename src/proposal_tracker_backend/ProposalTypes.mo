@@ -2,26 +2,31 @@ import Time "mo:base/Time";
 import Map "mo:map/Map";
 
 module {
+    public type ProposalId = Nat;
     public type Proposal = {
-        id : Nat;
+        id : ProposalId;
         title : Text;
         description : ?Text;
-        proposer : TextPrincipal;
-        timestamp : Time.Time;
-        status : { #Pending; #Approved; #Rejected };
+        proposer : Nat64;
+        timestamp : Nat64;
+        status : ProposalStatus;
+    };
+
+    public type ProposalStatus = {
+        #Pending; #Approved; #Rejected
     };
 
     public type ServiceData = {
         topics : [Nat];
         name : ?Text;
-        proposals : [Proposal];
-        lastId : Nat;
+        proposals : Map.Map<ProposalId, Proposal>;
+        lastProposalId : Nat;
     };
 
-    public type ProposalJob = {
-        id : Nat;
+    public type ProposalServiceJob = {
+        id : ProposalId;
         description : ?Text;
-        f : (ServiceData, [Proposal]) -> ();
+        task : (ServiceData, [Proposal]) -> (); //each task is provided with updated data for each governance service and the delta of the last update
     };
 
     public type TextPrincipal = Text;
@@ -29,6 +34,6 @@ module {
         services : Map.Map<TextPrincipal, ServiceData>;
         var tickrate : Nat;
         var timerId : ?Nat;
-        var jobs : [ProposalJob];
+        var jobs : [ProposalServiceJob];
     };
 }
