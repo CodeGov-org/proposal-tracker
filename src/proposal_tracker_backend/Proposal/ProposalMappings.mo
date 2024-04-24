@@ -3,7 +3,7 @@ import Array "mo:base/Array";
 import Result "mo:base/Result";
 import Nat64 "mo:base/Nat64";
 import Buffer "mo:base/Buffer";
-import G "./GovernanceTypes";
+import G "../Governance/GovernanceTypes";
 import PT "./ProposalTypes";
 
 
