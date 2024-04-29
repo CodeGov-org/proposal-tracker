@@ -31,20 +31,12 @@ actor class ProposalTrackerBackend() = {
 
   // public func testGet() : async [(PT.ProposalId, PT.Proposal)] {
 
-  //   switch(Map.get(proposalService.services, thash, "rrkah-fqaaa-aaaaa-aaaaq-cai")){
-  //     case(?serviceData){
-  //       return Map.toArray(serviceData.proposals);
-  //       };
-  //       case(_){
-  //         return [];
-  //       };
-  //   };
   // };
 
-  // public func testAddService() : async Result.Result<(), Text> {
+  public func testAddService() : async Result.Result<(), Text> {
 
-  //   await* ProposalService.addService(proposalService, "rrkah-fqaaa-aaaaa-aaaaq-cai", null);
-  // };
+    await* trackerService.addGovernance("rrkah-fqaaa-aaaaa-aaaaq-cai", null);
+  };
 
   // public func testGetProposals() : async [ PT.Proposal] {
 
