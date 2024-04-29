@@ -13,23 +13,14 @@ import Fuzz "mo:fuzz";
 import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
+import Int32 "mo:base/Int32";
 import GS "../Governance/GovernanceService";
 import TR "TrackerRepository";
 
 module {
 
-    // public func init<system>() :  TT.TrackerModel {
-    //     ignore Timer.recurringTimer<system>(#seconds(10), func() : async () {
-    //         Debug.print("Test")
-    //     });
-    //     TR.init();
-    // };
-
-    public class TrackerService(repository: TR.TrackerRepository, governanceService : GS.GovernanceService) {
+    public class TrackerService(repository: TR.TrackerRepository, governanceService : GS.GovernanceService, args : TT.TrackerServiceArgs) {
         let DEFAULT_TICKRATE : Nat = 10; // 10 secs 
-        //let NNS_GOVERNANCE_ID = "rrkah-fqaaa-aaaaa-aaaaq-cai";
-        // let repository: TR.TrackerRepository = repo;
-        // let governanceService = governance;
 
         public func initTimer<system>(_tickrate : ?Nat, job : TT.TrackerServiceJob) : async* Result.Result<(), Text> {
             
@@ -41,9 +32,8 @@ module {
 
             let timerId =  ?Timer.recurringTimer<system>(#seconds(tickrate), func() : async () {
                 Debug.print("Tick");
-                label timerUpdate for ((canisterId, serviceData) in Map.entries(repository.getAllGovernance())) {
-                    let res = await* governanceService.listProposals(canisterId,
-                    {
+                label timerUpdate for ((canisterId, governanceData) in Map.entries(repository.getAllGovernance())) {
+                    let res = await* governanceService.listProposalsAfterId(canisterId, governanceData.lowestActiveProposalId, {
                         include_reward_status = [];
                         omit_large_fields = ?true;
                         before_proposal = null;
@@ -53,35 +43,21 @@ module {
                         include_status = [];
                     });
 
-                    let #ok(data) = res
-                    else{
-                        Debug.print("Error fetching proposals: " # canisterId);
+                    let #ok(newData) = res
+                    else {
+                        Debug.print("Error getting proposals");
                         continue timerUpdate;
-                        //TODO: mainnet logging
                     };
+                    //TODO: Cleanup proposals if required
 
-                    //process delta
-                    let newProposals = PM.mapGetProposals(data.proposal_info) |>
-                        Array.filter(_, func(proposal: PT.Proposal ) : Bool{
-                            for (p in Map.vals(serviceData.proposals)){
-                                //filter proposal already in the list which have not changed
-                                if(p.id == proposal.id and p.status == proposal.status){
-                                    return false;
-                                };
-                                return true;
-                            };
-                            return true;
-                        });
-
-                    //update service data. 
-                    for (proposal in Array.vals(newProposals)){
-                        Map.set(serviceData.proposals, nhash, proposal.id, proposal);
+                    let #ok(newProposals, changedProposals) = repository.processAndUpdateProposals(governanceData, PM.mapGetProposals(newData.proposal_info))
+                    else{
+                        //TODO: log;
+                        continue timerUpdate;
                     };
-
-                    //TODO: remove old proposals
 
                     //run job callback
-                    job(serviceData, newProposals);
+                    job(newProposals, changedProposals);
 
                 }
             });
@@ -90,9 +66,9 @@ module {
             return #ok()
      };
      
-     public func addService(governancePrincipal : Text, topics : ?[Nat]) : async* Result.Result<(), Text> {
+     public func addGovernance(governancePrincipal : Text, topics : ?[Int32]) : async* Result.Result<(), Text> {
         if(repository.hasGovernance(governancePrincipal)){
-            return #err("Service already exists");
+            return #err("Canister has already been added");
         };
 
         var name = ?"NNS";

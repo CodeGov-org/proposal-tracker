@@ -7,19 +7,32 @@ module {
 
     public type TextPrincipal = Text;
 
+    public type TrackerServiceArgs = {
+        lifetime : {
+            #None : ();
+            #DeleteAfterExecution : ();
+            #DeleteAfterTime : Nat;
+        };
+    };
+
     public type TrackerModel = {
         trackedCanisters : Map.Map<Text, GovernanceData>;
         var timerId : ?Nat;
     };
 
+    type ProposalMapByTopic = Map.Map<Int32, [PT.Proposal]>; //sorted array of proposals indexed by topic id
 
     public type GovernanceData = {
-        topics : [Nat]; //store valid topics for the governance canister
-        name : ?Text;
-        proposals : Map.Map<PT.ProposalId, PT.Proposal>;
-        lastProposalId : Nat;
+        topics : [Int32]; //store valid topics for the governance canister
+        name : ?Text; //Name of the DAO
+        activeProposals : ProposalMapByTopic;
+        executedProposals : ProposalMapByTopic;
+        proposalsLookup : Map.Map<PT.ProposalId, {topicId : Int32; status : PT.ProposalStatus}>;
+        var proposalsRangeLastId : ?Nat;
+        var proposalsRangeLowestId : ?Nat;
+        var lowestActiveProposalId : ?Nat;
     };
 
-    public type TrackerServiceJob = (GovernanceData, [PT.Proposal]) -> (); //task is provided with updated data for each governance service and the delta of the last update
+    public type TrackerServiceJob = (newProposals : [PT.Proposal], executedProposals : [PT.Proposal]) -> (); //task is provided with new and executedProposals proposals
     
 }

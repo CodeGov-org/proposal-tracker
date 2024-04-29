@@ -12,8 +12,8 @@ module{
     func mapStatus(nnsStatus : Int32) : Result.Result<PT.ProposalStatus, Text>{
         switch(nnsStatus){
             case(0){#ok(#Pending)};
-            case(1){#ok(#Approved)};
-            case(2){#ok(#Rejected)};
+            case(1){#ok(#Executed(#Approved))};
+            case(2){#ok(#Executed(#Rejected))};
             case(_){#err("Unknown proposal status")}
         }
     };
@@ -47,6 +47,7 @@ module{
         #ok({
             id = Nat64.toNat(id);
             title = title;
+            topicId = nnsProposal.topic;
             description = null;
             proposer = proposer.id;
             timestamp = nnsProposal.proposal_timestamp_seconds;

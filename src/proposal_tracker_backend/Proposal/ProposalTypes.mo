@@ -3,6 +3,7 @@ module {
     public type ProposalId = Nat;
     public type Proposal = {
         id : ProposalId;
+        topicId : Int32;
         title : Text;
         description : ?Text;
         proposer : Nat64;
@@ -11,6 +12,7 @@ module {
     };
 
     public type ProposalStatus = {
-        #Pending; #Approved; #Rejected
+        #Pending; 
+        #Executed : {#Approved; #Rejected}
     };
 }
