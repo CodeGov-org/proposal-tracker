@@ -18,6 +18,13 @@ module{
         }
     };
 
+    public func proposalToAPI(p : PT.Proposal) : PT.ProposalAPI {
+        {
+            p with
+            status = p.status
+        };
+    };
+
     public func mapProposal(nnsProposal : G.ProposalInfo) :  Result.Result<PT.Proposal, Text> {
 
         let id = switch(nnsProposal.id){
@@ -51,7 +58,7 @@ module{
             description = null;
             proposer = proposer.id;
             timestamp = nnsProposal.proposal_timestamp_seconds;
-            status = status
+            var status = status
         })
      };
 

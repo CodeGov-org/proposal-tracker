@@ -10,6 +10,7 @@ import Timer "mo:base/Timer";
 import G "./Governance/GovernanceTypes";
 import GS "./Governance/GovernanceService";
 import PT "./Proposal/ProposalTypes";
+import TT "./Tracker/TrackerTypes";
 import PM "./Proposal/ProposalMappings";
 import Fuzz "mo:fuzz";
 import Nat64 "mo:base/Nat64";
@@ -21,7 +22,9 @@ actor class ProposalTrackerBackend() = {
   stable let trackerData = TR.init();
   let trackerRepository = TR.TrackerRepository(trackerData);
   let governanceService = GS.GovernanceService();
-  let trackerService = TS.TrackerService(trackerRepository, governanceService);
+  let trackerService = TS.TrackerService(trackerRepository, governanceService, {
+    lifetime = #DeleteImmediately;
+  });
 
   public func start() : async Result.Result<(), Text> {
     await* trackerService.initTimer(null, func(data, delta) :() {
@@ -29,9 +32,9 @@ actor class ProposalTrackerBackend() = {
     });
   };
 
-  // public func testGet() : async [(PT.ProposalId, PT.Proposal)] {
-
-  // };
+  public func getProposals(canisterId: Text, after : PT.ProposalId, topics : [Int32]) : async Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
+        trackerService.getProposals(canisterId, after : PT.ProposalId, topics : [Int32]);
+  };
 
   public func testAddService() : async Result.Result<(), Text> {
 

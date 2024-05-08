@@ -8,6 +8,16 @@ module {
         description : ?Text;
         proposer : Nat64;
         timestamp : Nat64;
+        var status : ProposalStatus;
+    };
+
+    public type ProposalAPI = {
+        id : ProposalId;
+        topicId : Int32;
+        title : Text;
+        description : ?Text;
+        proposer : Nat64;
+        timestamp : Nat64;
         status : ProposalStatus;
     };
 

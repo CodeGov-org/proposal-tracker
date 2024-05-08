@@ -9,6 +9,7 @@ import TT "./TrackerTypes";
 import PM "../Proposal/ProposalMappings";
 import Time "mo:base/Time";
 import Order "mo:base/Order";
+import LinkedList "mo:linked-list";
 
 module {
 
@@ -30,15 +31,16 @@ module {
                 return #err("Service already exists");
             };
 
-            //TODO Validate topics?
             ignore Map.put(trackerModel.trackedCanisters, thash, servicePrincipal, {
                 topics = Option.get(topics, []);
                 name = _name;
-                activeProposals = Map.new<Int32, [PT.Proposal]>();
-                executedProposals = Map.new<Int32, [PT.Proposal]>();
-                proposalsLookup = Map.new<PT.ProposalId, {topicId : Int32; status : PT.ProposalStatus}>();
-                var proposalsRangeLastId : ?Nat = ?0;
-                var proposalsRangeLowestId : ?Nat = ?0;
+                proposals = LinkedList.LinkedList<PT.Proposal>();
+                activeProposalsSet = Map.new<PT.ProposalId, ()>();
+                proposalsById = Map.new<PT.ProposalId, LinkedList.Node<PT.Proposal>>();
+                //proposalsByTopic = Map.new<Int32, LinkedList.LinkedList<PT.Proposal>>();
+
+                var lastProposalId : ?Nat = ?0;
+                var lowestProposalId : ?Nat = ?0;
                 var lowestActiveProposalId : ?Nat = null;
             });  
             #ok()
@@ -71,88 +73,52 @@ module {
             trackerModel.timerId
         };
 
-        // public func getProposalById(canisterId: Text, proposalId: Nat) : Result.Result<PT.Proposal, Text> {
-        //     switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
-        //         case (?canister) {
-        //             switch (Map.get(canister.proposalsLookup, nhash, proposalId)) {
-        //                 case (?proposal) { 
-        //                     var pMap = canister.activeProposals;
-        //                     switch(proposal.status){
-        //                         case (#Executed(v)) {
-        //                             pMap := canister.executedProposals;
-        //                         };
-        //                         case (_) {};
-        //                     };
-                            
-        //                     switch(Map.get(pMap, i32hash, proposal.topicId)){
-        //                         case (?pArray) {
-        //                             let res = Array.find(pArray, func(p : PT.Proposal) : Bool {
-        //                                 return p.id == proposalId;
-        //                             });
+        //TODO: limit and pagination
+        public func getProposals(canisterId: Text, after : PT.ProposalId, topics : [Int32]) : Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
+            switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
+                case (?canister) {
+                   //#ok(LinkedList.toArray(canister.proposals));
+                   let buf = Buffer.Buffer<PT.ProposalAPI>(100);
+                    if (after < Option.get(canister.lowestProposalId, 0) or after > Option.get(canister.lastProposalId, after + 1)) {
+                        return #err(#InvalidProposalId{start = Option.get(canister.lowestActiveProposalId, 0); end = Option.get(canister.lastProposalId, 0)});
+                    };
 
-        //                             switch(res){
-        //                                 case (?proposal) {
-        //                                     return #ok(proposal);
-        //                                 };
-        //                                 case (_) {
-        //                                     return #err("Proposal not found, no proposal with this topic id")
-        //                                 }
-        //                             };
-        //                         };
-        //                         case (_) {
-        //                             return #err("Proposal not found, no proposal with this topic id")
-        //                         };
-        //                     };
-        //                  };
-        //                  case (_) { return #err("Proposal not found, ID doesnt exist in lookup") };
-        //             };
-        //         };
-        //         case (_) { #err("Canister not tracked")}
-        //     }
-        // };
+                    //TODO: verify at least one topic is valid;
+                    
+                    switch(Map.get(canister.proposalsById, nhash, after)){
+                        case (?node) {
+                            var current = ?node;
+                            while(not Option.isNull(current)){
+                                // if(Array.contains(topics, current.data.topic)){
+                                //     buf.push({
+                                //         current.data with
+                                //         status = current.data.status;                           
+                                //     });
+                                // };
 
-        type ProposalFilter = {topics : ?[Nat]; states : ?[PT.ProposalStatus]; height: ?Nat};
+                                switch(current){
+                                    case (?e) {
+                                        buf.add({
+                                        e.data with
+                                        status = e.data.status;                           
+                                    });
+                                    current := e._next;
+                                    };
+                                    case(_){};
+                                }
+                            };
+                            return #ok(Buffer.toArray<PT.ProposalAPI>(buf));
+                        };
+                        case (_) {
+                            return #err(#InternalError);
+                        };
+                    };
 
-        // public func getProposals(canisterId: Text, filters : [ProposalFilter]) : Result.Result<[(Nat, PT.Proposal)], Text> {
-        //     switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
-        //         case (?canister) {
-        //            #ok(Map.toArray(canister.proposals));
-        //          };
-        //         case (_) { #err("Canister not tracked")}
-        //     }
-        // };
+                 };
+                case (_) { #err(#CanisterNotTracked)}
+            }
+        };
 
-        // public func getProposalsFromHeightByTopics(canisterId: Text, startHeight: Nat, topics: [Nat]) : Result.Result<[PT.Proposal], Text> {
-        //     switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
-        //         case (?canister) {
-        //             let proposalBuffer = Buffer.Buffer<PT.Proposal>(50);
-        //             for ((id, proposal) in Map.entries(canister.proposals)) {
-        //                 if (proposal.id >= startHeight and Array.find(topics, func(t : Nat) : Bool{
-        //                     t == proposal.id}) != null) {
-        //                     proposalBuffer.add(proposal);
-        //                 };
-        //          };
-        //          #ok(Buffer.toArray(proposalBuffer));
-        //         };
-        //         case (_) { #err("Canister not tracked")}
-        //         }
-        // };
-
-        // func addProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) : () {
-        //     // if(proposal.id > governanceData.lastProposalId){
-        //     //     governanceData.lastProposalId := proposal.id;
-        //     // };
-
-        //     //Map.set(governanceData.proposalsLookup, nhash, proposalId, {state: proposal.state; topic = proposal.topic;});
-        //     switch(Map.get(governanceData.activeProposals, ihash, proposal.topicId)){
-        //         case (?pArray) {
-        //             Map.set(governanceData.activeProposals, nhash, proposal.topicId, Array.push(pArray, proposal));
-        //         };
-        //         case (_) {
-        //             Map.set(governanceData.activeProposals, nhash, proposal.topicId, [proposal]);
-        //         };
-        //     }
-        // };
 
         func compareIds(a : PT.Proposal, b : PT.Proposal) : Order.Order {
             if(a.id > b.id){
@@ -164,123 +130,113 @@ module {
             };
         };
 
-        func addProposals(governanceData : TT.GovernanceData, map : Map.Map<Int32, Buffer.Buffer<PT.Proposal>>) : (){
-            for ((topic, proposalBuffer) in Map.entries(map)) {
-                switch(Map.get(governanceData.activeProposals, i32hash, topic)){
-                    case (?pArray) {
-                        Map.set(governanceData.activeProposals, i32hash, topic, Array.append(pArray, Array.sort(Buffer.toArray(proposalBuffer), compareIds)));
-                    };
-                    case (_) {
-                        Map.set(governanceData.activeProposals, i32hash, topic, Array.sort(Buffer.toArray(proposalBuffer), compareIds));
-                    }
+        func updateProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) : () {
+            switch(Map.get(governanceData.proposalsById, nhash, proposal.id)){
+                case (?p) {
+                    p.data.status := proposal.status;
+                };
+                case(_) {
+                    //ERROR TODO: Log
+                }
+            };
+            ignore Map.remove(governanceData.activeProposalsSet, nhash, proposal.id);
+
+            var lowestId : ?PT.ProposalId = null;
+            for (id in Map.keys(governanceData.proposalsById)) {
+                //on first iter lowestId is null, so this will always be true
+                if(id < Option.get(lowestId, id + 1)){
+                    lowestId := ?id;
+                };
+            };
+            governanceData.lowestActiveProposalId := lowestId;
+        };
+
+        func addProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) {
+            let node = LinkedList.Node<PT.Proposal>(proposal);
+            Map.set(governanceData.proposalsById, nhash, proposal.id, node);
+            LinkedList.append_node(governanceData.proposals, node);
+            // switch(Map.get(governanceData.proposalsByTopic, i32hash, proposal.topicId)){
+            //     case(?v){
+            //         LinkedList.append_node(v, LinkedList.Node<PT.Proposal>(proposal));
+            //     };
+            //     case (_) {
+            //         let list = LinkedList.LinkedList<PT.Proposal>();
+            //         LinkedList.append_node(list, LinkedList.Node<PT.Proposal>(proposal));
+            //         Map.set(governanceData.proposalsByTopic, i32hash, proposal.topicId, list);
+            //     }
+            // };
+
+            ignore Map.add(governanceData.activeProposalsSet, nhash, proposal.id, ());
+
+            if (proposal.id > Option.get(governanceData.lastProposalId, 0)){
+                governanceData.lastProposalId := ?proposal.id;
+            }
+        };
+
+        func optToRes<T>(opt : ?T) : Result.Result<T, ()> {
+            switch(opt){
+                case (?t) {
+                    return #ok(t);
+                };
+                case (_) {
+                    return #err();
                 };
             };
         };
 
-        func updateProposals(governanceData : TT.GovernanceData, map : Map.Map<Int32, Buffer.Buffer<PT.Proposal>>) : () {
+        func removeProposal(governanceData : TT.GovernanceData, id : PT.ProposalId) : Result.Result<(), Text> {
+            let #ok(p) = optToRes(Map.remove(governanceData.proposalsById, nhash, id))
+            else {
+                return #err("Proposal id not found");
+            };
 
+            LinkedList.remove_node(governanceData.proposals, p);
+
+            // let #ok(t) = optToRes(Map.remove(governanceData.proposalsByTopic, i32hash, p.topicId))
+            // else {
+            //     return #err("Proposal topic not found");
+            // };
+            // LinkedList.remove_node(t, LinkedList.Node<PT.Proposal>(p));
+
+            switch((governanceData.proposals._head, governanceData.proposals._tail)){
+                case((?h,?t)) {
+                    governanceData.lowestProposalId := ?h.data.id;
+                    governanceData.lastProposalId := ?t.data.id;
+                };
+                case(_) {
+                    governanceData.lowestProposalId := ?0;
+                    governanceData.lastProposalId := ?0;
+                };
+            };
+
+
+            #ok();
         };
 
-        //TODO: cleanup after validation
-        public func processAndUpdateProposals(governanceData : TT.GovernanceData, proposals: [PT.Proposal]) : Result.Result<([PT.Proposal], [PT.Proposal]), Text> {
+         public func processAndUpdateProposals(governanceData : TT.GovernanceData, _proposals: [PT.Proposal]) : Result.Result<([PT.Proposal], [PT.Proposal]), Text> {
             let newProposal = Buffer.Buffer<PT.Proposal>(50);
             let executedProposals = Buffer.Buffer<PT.Proposal>(50);
-
-            let newProposalsByTopic = Map.new<Int32, Buffer.Buffer<PT.Proposal>>();
-            let executedProposalsByTopic = Map.new<Int32, Buffer.Buffer<PT.Proposal>>();
+            let proposals = Array.sort(_proposals, compareIds);
 
             label processDelta for (pa in Array.vals(proposals)){
-                switch (Map.get(governanceData.proposalsLookup, nhash, pa.id)) {
-                    case (?proposal) { 
-                        //if the proposal has already been moved to the executed set, then we can skip it
-                        let #Pending(v) = proposal.status
-                        else { continue processDelta;};
-                
-                        switch(Map.get(governanceData.activeProposals, i32hash, proposal.topicId)){
-                            case (?pArray) {
-                                //TODO: use binary search
-                                let res = Array.find(pArray, func(p : PT.Proposal) : Bool {
-                                    return p.id == pa.id;
-                                });
-
-                                switch(res){
-                                    case (?existingProposal) {
-                                        if(pa.status != existingProposal.status){
-                                            executedProposals.add(existingProposal);
-                                            //update lookup
-                                            Map.set(governanceData.proposalsLookup, nhash, pa.id, {status= pa.status; topicId = pa.topicId;});
-                                            //insert into executed proposals by topic
-                                            switch (Map.get(executedProposalsByTopic, i32hash, pa.topicId)){
-                                                case(?buf){
-                                                    buf.add(pa);
-                                                };
-                                                case (_) {
-                                                    let b = Buffer.Buffer<PT.Proposal>(50);
-                                                    b.add(pa);
-                                                    Map.set(executedProposalsByTopic, i32hash, pa.topicId, b);
-                                                };
-                                            };
-                                            //remove from active proposals
-                                            
-                                        }
-                                    };
-                                    case (_) {
-                                        return #err("Proposal not found, no proposal with this topic id")
-                                    }
-                                };
-                            };
-                            case (_) {
-                                return #err("Proposal not found, no proposal with this topic id")
-                            };
+                switch(Map.get(governanceData.proposalsById, nhash, pa.id)){
+                    case (?v) {
+                        //existing proposals, check if state changed
+                        if(pa.status != v.data.status){
+                            //state changed, update proposal
+                            executedProposals.add(v.data);
+                            updateProposal(governanceData, pa);
                         };
-                        };
+                    };
+                    case (_) {
                         //doesnt exist, add it
-                        case (_) { 
-                            //check if the proposal should be in the executed set
-                            //needed in case at first try the proposal is already settled
-                            switch(pa.status){
-                                case (#Pending){
-                                    newProposal.add(pa);
-                                    switch (Map.get(newProposalsByTopic, i32hash, pa.topicId)){
-                                        case(?buf){
-                                            buf.add(pa);
-                                        };
-                                        case (_) {
-                                            let b = Buffer.Buffer<PT.Proposal>(50);
-                                            b.add(pa);
-                                            Map.set(newProposalsByTopic, i32hash, pa.topicId, b);
-                                        }
-                                    };
-                                };
-                                case (#Executed(v)) {
-                                    executedProposals.add(pa);
-                                    switch (Map.get(executedProposalsByTopic, i32hash, pa.topicId)){
-                                        case(?buf){
-                                            buf.add(pa);
-                                        };
-                                        case (_) {
-                                            let b = Buffer.Buffer<PT.Proposal>(50);
-                                            b.add(pa);
-                                            Map.set(executedProposalsByTopic, i32hash, pa.topicId, b);
-                                        };
-                                    };
-                                };
-                            };
-
-                            if(pa.id > Option.get(governanceData.proposalsRangeLastId, 0)){
-                                governanceData.proposalsRangeLastId := ?pa.id;
-                            };
-                            Map.set(governanceData.proposalsLookup, nhash, pa.id, {status= pa.status; topicId = pa.topicId;});
-                            //addProposal(governanceData, proposal);
-                         };
-                };
-            };
-
-            addProposals(governanceData, newProposalsByTopic);
-            updateProposals(governanceData, executedProposalsByTopic);
-
+                        newProposal.add(pa);
+                        addProposal(governanceData, pa);
+                    }
+                }
+              };
             #ok(Buffer.toArray(newProposal), Buffer.toArray(executedProposals));
-        };
+         };
     };
     
 };

@@ -19,15 +19,13 @@ module {
             }
         };
 
-        public func getSNSMetadata(governanceId : Text) : async* Result.Result<( {url: ?Text; logo:?Text; name:?Text; description:?Text}), Text>{
-
-            //NNS has no get_metadata method, plus its id never changes 
-            if(governanceId == NNS_GOVERNANCE_ID){
-                return #err("NNS does not have a get_metadata method");
-            };
-
+        public func getMetadata(governanceId : Text) : async* Result.Result<( {name:?Text; description:?Text}), Text>{
             //verify canister exists and is a governance canister
             let gc : GT.GovernanceCanister = actor(governanceId);
+            if (governanceId == NNS_GOVERNANCE_ID){
+               return #ok({name = ?"NNS"; description = ?"Network Nervous System"})
+            };
+
             try {
                 let res = await gc.get_metadata();
                 #ok(res)

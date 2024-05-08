@@ -71,16 +71,16 @@ module {
             return #err("Canister has already been added");
         };
 
-        var name = ?"NNS";
-
-        let res = await* governanceService.getSNSMetadata(governancePrincipal);
+        let res = await* governanceService.getMetadata(governancePrincipal);
         switch(res){
-            case(#ok(metadata)){name := metadata.name;};
-            case(#err(err)){ return #err("Error fetching SNS metadata:" #err); }
+            case(#ok(metadata)){ repository.addGovernance(governancePrincipal, metadata.name, topics);};
+            case(#err(err)){ return #err("Error fetching metadata:" #err); }
         };
-
-        repository.addGovernance(governancePrincipal, name, topics);
      };
 
+    public func getProposals(canisterId: Text, after : PT.ProposalId, topics : [Int32]) : Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
+        repository.getProposals(canisterId, after : PT.ProposalId, topics : [Int32]);
     }
+
+    };
 }
