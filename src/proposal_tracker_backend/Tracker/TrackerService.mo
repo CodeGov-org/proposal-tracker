@@ -186,8 +186,8 @@ module {
         };
      };
 
-    public func getProposals(canisterId: Text, after : PT.ProposalId, topics : [Int32]) : Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
-        repository.getProposals(canisterId, after : PT.ProposalId, topics : [Int32]);
+    public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : [Int32]) : Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
+        repository.getProposals(canisterId, after, topics);
     }
 
     };

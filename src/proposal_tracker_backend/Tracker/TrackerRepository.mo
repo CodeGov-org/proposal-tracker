@@ -77,13 +77,18 @@ module {
         };
 
         //TODO: limit to 100 to prevent hitting message limit
-        public func getProposals(canisterId: Text, after : PT.ProposalId, topics : [Int32]) : Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
+        public func getProposals(canisterId: Text, _after : ?PT.ProposalId, topics : [Int32]) : Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
             switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
                 case (?canister) {
-                   let buf = Buffer.Buffer<PT.ProposalAPI>(100);
+                    let #ok(after) = Utils.optToRes(_after)
+                    else{
+                        return #err(#InvalidProposalId{start = Option.get(canister.lowestProposalId, 0); end = Option.get(canister.lastProposalId, 0)});
+                    };
                     if (Option.isNull(canister.lowestProposalId) or Option.isNull(canister.lastProposalId) or after < Option.get(canister.lowestProposalId, 0) or after > Option.get(canister.lastProposalId, after + 1)) {
                         return #err(#InvalidProposalId{start = Option.get(canister.lowestProposalId, 0); end = Option.get(canister.lastProposalId, 0)});
                     };
+                    
+                    let buf = Buffer.Buffer<PT.ProposalAPI>(100);
 
                     //verify at least one topic is valid and create a set for more efficient checks later
                     let topicSet = Map.new<Int32,()>();
