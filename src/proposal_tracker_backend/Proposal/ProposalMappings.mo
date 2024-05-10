@@ -11,8 +11,8 @@ module{
 
     func mapStatus(nnsStatus : Int32) : Result.Result<PT.ProposalStatus, Text>{
         switch(nnsStatus){
-            case(0){#ok(#Pending)};
-            case(1){#ok(#Executed(#Approved))};
+            case(1){#ok(#Pending)};
+            case(4){#ok(#Executed(#Approved))};
             case(2){#ok(#Executed(#Rejected))};
             case(_){#err("Unknown proposal status")}
         }

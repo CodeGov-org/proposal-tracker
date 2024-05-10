@@ -177,7 +177,13 @@ module {
             //     }
             // };
 
-            ignore Map.add(governanceData.activeProposalsSet, nhash, proposal.id, ());
+            //occasionally a proposal may get here already executed, if so dont add to active list
+            switch(proposal.status){
+                case(#Executed(v)){};
+                case(_){
+                    ignore Map.add(governanceData.activeProposalsSet, nhash, proposal.id, ());
+                };
+            };
 
             if (proposal.id > Option.get(governanceData.lastProposalId, 0)){
                 governanceData.lastProposalId := ?proposal.id;
@@ -228,9 +234,14 @@ module {
                     case (?v) {
                         //existing proposals, check if state changed
                         if(pa.status != v.data.status){
-                            //state changed, update proposal
-                            updateProposal(governanceData, pa);
-                            executedProposals.add({v.data with status = v.data.status});
+                            switch(pa.status){
+                                case(#Executed(e)){
+                                    //update proposal
+                                    updateProposal(governanceData, pa);
+                                    executedProposals.add({v.data with status = v.data.status});
+                                };
+                                case(_){};
+                            };
                         };
                     };
                     case (_) {
