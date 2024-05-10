@@ -3,6 +3,7 @@ base = "0.11.1"
 map = "9.0.1"
 fuzz = "0.2.1"
 linked-list = "0.1.0"
+time-consts = "1.0.1"
 
 [dev-dependencies]
 test = "2.0.0"
