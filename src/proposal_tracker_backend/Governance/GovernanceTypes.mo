@@ -635,6 +635,18 @@ module {
   public type WaitForQuietState = {
     current_deadline_timestamp_seconds : Nat64;
   };
+
+  public type NervousSystemFunction = {
+    id : Nat64;
+    name : Text;
+    description : ?Text;
+    //function_type : opt FunctionType;
+  };
+
+  public type ListNervousSystemFunctionsResponse = {
+    reserved_ids : [Nat64];
+    functions : [NervousSystemFunction];
+  };
   public type GovernanceCanister =  actor {
     //NNS
     claim_gtc_neurons : shared (Principal, [NeuronId]) -> async Result;
@@ -666,6 +678,7 @@ module {
     update_node_provider : shared UpdateNodeProvider -> async Result;
 
     //SNS
-    get_metadata: shared query () -> async ( {url: ?Text; logo:?Text; name:?Text; description:?Text})
+    get_metadata: shared query () -> async ( {url: ?Text; logo:?Text; name:?Text; description:?Text});
+    list_nervous_system_functions : shared query () -> async(ListNervousSystemFunctionsResponse);
   }
 }
