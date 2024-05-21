@@ -27,8 +27,8 @@ actor class ProposalTrackerBackend() = {
     cleanupStrategy = #DeleteAfterTime(#Days(7));
   });
 
-  stable let subs = NS.init();
-  let ProposalNotifierService = NS.ProposalNotifierService(subs);
+  //stable let subs = NS.init();
+  //let ProposalNotifierService = NS.ProposalNotifierService(subs);
 
   public func start() : async Result.Result<(), Text> {
     await* trackerService.initTimer(?300, func(governanceId, new, executed) : () {
