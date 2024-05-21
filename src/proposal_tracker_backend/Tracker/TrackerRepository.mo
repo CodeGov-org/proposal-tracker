@@ -42,7 +42,7 @@ module {
                 activeProposalsSet = Map.new<PT.ProposalId, ()>();
                 proposalsById = Map.new<PT.ProposalId, LinkedList.Node<PT.Proposal>>();
 
-                var lastProposalId : ?Nat = null; //TODO: validate behaviour
+                var lastProposalId : ?Nat = null;
                 var lowestProposalId : ?Nat = null;
                 var lowestActiveProposalId : ?Nat = null;
             });  
@@ -77,7 +77,7 @@ module {
         };
 
         //TODO: limit to 100 to prevent hitting message limit
-        public func getProposals(canisterId: Text, _after : ?PT.ProposalId, topics : [Int32]) : Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
+        public func getProposals(canisterId: Text, _after : ?PT.ProposalId, topics : [Int32], limit : ?Nat) : Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
             switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
                 case (?canister) {
                     let #ok(after) = Utils.optToRes(_after)
@@ -87,7 +87,11 @@ module {
                     if (Option.isNull(canister.lowestProposalId) or Option.isNull(canister.lastProposalId) or after < Option.get(canister.lowestProposalId, 0) or after > Option.get(canister.lastProposalId, after + 1)) {
                         return #err(#InvalidProposalId{start = Option.get(canister.lowestProposalId, 0); end = Option.get(canister.lastProposalId, 0)});
                     };
-                    
+
+                    if(after == Option.get(canister.lastProposalId, after + 1)){
+                        return #ok(#Success([]));
+                    };
+
                     let buf = Buffer.Buffer<PT.ProposalAPI>(100);
 
                     //verify at least one topic is valid and create a set for more efficient checks later
@@ -107,6 +111,7 @@ module {
                     switch(Map.get(canister.proposalsById, nhash, after)){
                         case (?node) {
                             var current = ?node;
+                            var count = 0;
                             //Iterate linked list directly starting from element instead of head
                             label it while(not Option.isNull(current)){
                                 switch(current){
@@ -119,11 +124,16 @@ module {
                                             });
                                         };
                                         current := e._next;
+                                        count := count + 1;
+                                        //this is only true is the limit isn't null and equal to count
+                                        if(count == Option.get(limit, count + 1)){
+                                            return #ok(#LimitReached(Buffer.toArray<PT.ProposalAPI>(buf)));
+                                        };
                                     };
                                     case(_){};
                                 }
                             };
-                            return #ok(Buffer.toArray<PT.ProposalAPI>(buf));
+                            return #ok(#Success(Buffer.toArray<PT.ProposalAPI>(buf)));
                         };
                         case (_) {
                             return #err(#InternalError);
@@ -153,6 +163,7 @@ module {
                 };
                 case(_) {
                     //ERROR TODO: Log
+                    //Logger.log(#Warning, "Proposal not found");
                 }
             };
             ignore Map.remove(governanceData.activeProposalsSet, nhash, proposal.id);
@@ -237,7 +248,7 @@ module {
             label processDelta for (pa in Array.vals(sortedProposals)){
                 switch(Map.get(governanceData.proposalsById, nhash, pa.id)){
                     case (?v) {
-                        //existing proposals, check if state changed
+                        //existing proposal, check if state changed
                         if(pa.status != v.data.status){
                             switch(pa.status){
                                 case(#Executed(e)){
