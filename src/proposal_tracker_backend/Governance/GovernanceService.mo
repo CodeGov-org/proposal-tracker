@@ -115,7 +115,7 @@ module {
                                         case(_){};
                                     }
                                 };
-                                case(_){}; //TODO: invariant, log for safety
+                                case(_){}; //TODO: broken invariant, log for safety
                             };
 
                         };
