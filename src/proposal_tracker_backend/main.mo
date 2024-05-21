@@ -16,6 +16,7 @@ import Fuzz "mo:fuzz";
 import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
+import NS "./Notifier/ProposalNotifierService";
 actor class ProposalTrackerBackend() = {
 
 
@@ -23,22 +24,28 @@ actor class ProposalTrackerBackend() = {
   let trackerRepository = TR.TrackerRepository(trackerData);
   let governanceService = GS.GovernanceService();
   let trackerService = TS.TrackerService(trackerRepository, governanceService, {
-    lifetime = #DeleteImmediately;
+    cleanupStrategy = #DeleteAfterTime(#Days(7));
   });
 
+  stable let subs = NS.init();
+  let ProposalNotifierService = NS.ProposalNotifierService(subs);
+
   public func start() : async Result.Result<(), Text> {
-    await* trackerService.initTimer(null, func(data, delta) :() {
+    await* trackerService.initTimer(?300, func(governanceId, new, executed) : () {
       Debug.print("Tick");
+      Debug.print("new proposals: " # debug_show(new));
+      Debug.print("executed proposals: " # debug_show(executed));
+      Debug.print("governanceId: " # governanceId);
+     //ProposalNotifierService.notify(governanceId, new, executed);
     });
   };
 
-  public func getProposals(canisterId: Text, after : PT.ProposalId, topics : [Int32]) : async Result.Result<[PT.ProposalAPI], TT.GetProposalError> {
-        trackerService.getProposals(canisterId, after : PT.ProposalId, topics : [Int32]);
+  public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : [Int32]) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
+    trackerService.getProposals(canisterId, after, topics);
   };
 
   public func testAddService() : async Result.Result<(), Text> {
-
-    await* trackerService.addGovernance("rrkah-fqaaa-aaaaa-aaaaq-cai", null);
+    await* trackerService.addGovernance("rrkah-fqaaa-aaaaa-aaaaq-cai", #All);
   };
 
   // public func testGetProposals() : async [ PT.Proposal] {
