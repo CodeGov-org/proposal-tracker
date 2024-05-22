@@ -2,87 +2,58 @@
 import Debug "mo:base/Debug";
 import List "mo:base/List";
 import Time "mo:base/Time";
+import LT "./LogTypes";
 
 module {
-    public type LogLevel = {
-        #Error;
-        #Warn;
-        #Info;
-        #Debug;
-    };
-
-    public type LogService = {
-        log : (level : LogLevel, message : Text) -> ();
-        // logError : (message : Text) -> ();
-        // logWarn : (message : Text) -> ();
-        // logInfo : (message : Text) -> ();
-        // logDebug : (message : Text) -> ();
-        getLogs(height : ?Nat) : [(LogLevel,Text)];
-        clearLogs(height : ?Nat) : ();
-    };
-
-    public type Log = (Nat, LogLevel, Text);
-
-    public type LogList= List.List<Log>;
-    public type LogModel = {
-        var logs : LogList;
-        var lastBlockTime : Time.Time;
-        var currentHeight : Nat;
-    };
-
-    public func initLogModel() : LogModel {
+    public func initLogModel() : LT.LogModel {
         {
-           var logs = List.nil<(Nat, LogLevel,Text)>();
-           var lastBlockTime = Time.now();
-           var currentHeight = 0;
+           var logs = List.nil<LT.Log>();
         }
     };
 
-    public class LogServiceImpl(logModel : LogModel, maxLogSize : Nat, isDebug : Bool) {
-        public func log(level : LogLevel, message : Text) : () {
+    public class LogServiceImpl(logModel : LT.LogModel, maxLogSize : Nat, isDebug : Bool) {
+
+        public func addLog(_level : LT.LogLevel, _message : Text, _context : ?Text) : () {
             if(isDebug){
-                Debug.print(message);
+                Debug.print(_message);
             };
 
-            if(Time.now() > logModel.lastBlockTime){
-                logModel.lastBlockTime := Time.now();
-                logModel.currentHeight := logModel.currentHeight + 1;
-            };
-            
-            logModel.logs := List.push((logModel.currentHeight, level, message), logModel.logs);
+            let log = {
+                timestamp = Time.now();
+                level = _level;
+                message = _message;
+                context = _context;
+            };  
+
+            logModel.logs := List.push(log, logModel.logs);
             if (List.size(logModel.logs) > maxLogSize){
                 let (_, tmp) = List.pop(logModel.logs);
                 logModel.logs := tmp;
             };
         };
 
-        public func getLogs(height : ?Nat) : [Log] {
-            switch(height){
-                case(?h){
-                    if (logModel.currentHeight < h) {
-                        return List.toArray(logModel.logs);
-                    };
-                    List.filter(logModel.logs, func (x : Log) : Bool {x.0 >= h}) |>
-                        List.toArray(_);
-                };
-                case(_){
-                    return List.toArray(logModel.logs);
-                };
-            };
+        public func logError(message : Text, context : ?Text) : () {
+            addLog(#Error, message, context);
         };
 
-        public func clearLogs(height : ?Nat) : () {
-            switch(height){
-                case(?h){
-                    if (List.size(logModel.logs) < h) {
-                        logModel.logs := List.nil<Log>();
-                    };
-                   logModel.logs := List.filter(logModel.logs, func (x : Log) : Bool {x.0 >= h});
-                };
-                case(_){
-                    logModel.logs := List.nil<Log>();
-                }
-            }
+        public func logWarn(message : Text, context : ?Text) : () {
+            addLog(#Warn, message, context);
+        };
+
+        public func logInfo(message : Text, context : ?Text) : () {
+            addLog(#Info, message, context);
+        };
+  
+
+        public func getLogs(filter : ?LT.LogFilter) : [LT.Log] {
+            List.filter(logModel.logs, func (x : LT.Log) : Bool {
+                LT.matchLogFilter(filter, x);
+            }) |>
+                List.toArray(_);
+        };
+
+        public func clearLogs() : () {
+            logModel.logs := List.nil<LT.Log>();
         }
     };
 }
