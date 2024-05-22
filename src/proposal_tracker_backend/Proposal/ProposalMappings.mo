@@ -3,6 +3,9 @@ import Array "mo:base/Array";
 import Result "mo:base/Result";
 import Nat64 "mo:base/Nat64";
 import Buffer "mo:base/Buffer";
+import Time "mo:base/Time";
+import Int "mo:base/Int";
+import Int64 "mo:base/Int64";
 import G "../Governance/GovernanceTypes";
 import PT "./ProposalTypes";
 
@@ -59,7 +62,7 @@ module{
             topicId = nnsProposal.topic;
             description = null;
             proposer = proposer.id;
-            timestamp = nnsProposal.proposal_timestamp_seconds;
+            timestamp = Int64.toNat64(Int64.fromInt(Time.now()));
             var deadlineTimestampSeconds = nnsProposal.deadline_timestamp_seconds;
             proposalTimestampSeconds = nnsProposal.proposal_timestamp_seconds;
             var status = status
