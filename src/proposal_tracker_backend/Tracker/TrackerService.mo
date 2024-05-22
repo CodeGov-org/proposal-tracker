@@ -20,8 +20,6 @@ import Utils "../utils";
 import {DAY; HOUR; WEEK} "mo:time-consts";
 import LinkedList "mo:linked-list";
 
-//TODO: Implement logging library
-//data for reminders
 module {
 
     public class TrackerService(repository: TR.TrackerRepository, governanceService : GS.GovernanceService, args : TT.TrackerServiceArgs) {
@@ -31,7 +29,7 @@ module {
         public func update(cb : TT.TrackerServiceJob) : async () {
             label timerUpdate for ((canisterId, governanceData) in Map.entries(repository.getAllGovernance())) {
                 //if lowestActiveProposalId is null, call pending proposal method and sync up until lowest active proposal id
-                    if (Option.isNull(governanceData.lowestActiveProposalId)){
+                if (Option.isNull(governanceData.lowestActiveProposalId)){
                     Debug.print("lowestActiveProposalId is null, initializing with pending proposals");
                     let #ok(res) = await* governanceService.getPendingProposals(canisterId)
                     else {

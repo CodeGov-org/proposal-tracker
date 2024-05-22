@@ -10,6 +10,7 @@ import PT "./ProposalTypes";
 module{
 
     func mapStatus(nnsStatus : Int32) : Result.Result<PT.ProposalStatus, Text>{
+        //TODO: find these
         switch(nnsStatus){
             case(1){#ok(#Pending)};
             case(4){#ok(#Executed(#Approved))};
@@ -21,7 +22,8 @@ module{
     public func proposalToAPI(p : PT.Proposal) : PT.ProposalAPI {
         {
             p with
-            status = p.status
+            status = p.status;
+            deadlineTimestampSeconds = p.deadlineTimestampSeconds;
         };
     };
 
@@ -58,6 +60,8 @@ module{
             description = null;
             proposer = proposer.id;
             timestamp = nnsProposal.proposal_timestamp_seconds;
+            var deadlineTimestampSeconds = nnsProposal.deadline_timestamp_seconds;
+            proposalTimestampSeconds = nnsProposal.proposal_timestamp_seconds;
             var status = status
         })
      };

@@ -76,7 +76,8 @@ module {
             trackerModel.timerId
         };
 
-        //TODO: limit to 100 to prevent hitting message limit
+        //TODO: handle manage neuron proposals causing blank spots in the list
+        // if no topics are provided then all proposals are returned
         public func getProposals(canisterId: Text, _after : ?PT.ProposalId, topics : [Int32], limit : ?Nat) : Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
             switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
                 case (?canister) {
@@ -118,14 +119,11 @@ module {
                                     case (?e) {
                                         // only add if the proposal topic is in the list of topics
                                         if(Map.has(topicSet, i32hash, e.data.topicId)){
-                                            buf.add({
-                                                e.data with
-                                                status = e.data.status;                           
-                                            });
+                                            buf.add(PM.proposalToAPI(e.data));
                                         };
                                         current := e._next;
                                         count := count + 1;
-                                        //this is only true is the limit isn't null and equal to count
+                                        //this is only true if the limit isn't null and equal to count
                                         if(count == Option.get(limit, count + 1)){
                                             return #ok(#LimitReached(Buffer.toArray<PT.ProposalAPI>(buf)));
                                         };
@@ -154,28 +152,6 @@ module {
             }else{
                 return #equal;
             };
-        };
-
-        func updateProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) : () {
-            switch(Map.get(governanceData.proposalsById, nhash, proposal.id)){
-                case (?p) {
-                    p.data.status := proposal.status;
-                };
-                case(_) {
-                    //ERROR TODO: Log
-                    //Logger.log(#Warning, "Proposal not found");
-                }
-            };
-            ignore Map.remove(governanceData.activeProposalsSet, nhash, proposal.id);
-
-            var lowestId : ?PT.ProposalId = null;
-            for (id in Map.keys(governanceData.proposalsById)) {
-                //on first iter lowestId is null, so this will always be true
-                if(id < Option.get(lowestId, id + 1)){
-                    lowestId := ?id;
-                };
-            };
-            governanceData.lowestActiveProposalId := lowestId;
         };
 
         func addProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) {
@@ -211,6 +187,36 @@ module {
             };
         };
 
+        func updateProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) : () {
+            switch(Map.get(governanceData.proposalsById, nhash, proposal.id)){
+                case (?p) {
+                    p.data.status := proposal.status;
+                    p.data.deadlineTimestampSeconds := proposal.deadlineTimestampSeconds;
+                };
+                case(_) {
+                    //ERROR TODO: Log
+                    //Logger.log(#Warning, "Proposal not found");
+                }
+            };
+
+            //once the proposal is executed, remove it from active list and update the lowest active proposal id
+            switch(proposal.status){
+                case(#Executed(e)){
+                    ignore Map.remove(governanceData.activeProposalsSet, nhash, proposal.id);
+
+                    var lowestId : ?PT.ProposalId = null;
+                    for (id in Map.keys(governanceData.proposalsById)) {
+                        //on first iter lowestId is null, so this will always be true
+                        if(id < Option.get(lowestId, id + 1)){
+                            lowestId := ?id;
+                        };
+                    };
+                    governanceData.lowestActiveProposalId := lowestId;
+                };
+                case(_){};
+            };
+        };
+
         public func deleteProposal(governanceData : TT.GovernanceData, id : PT.ProposalId) : Result.Result<(), Text> {
             let #ok(p) = Utils.optToRes(Map.remove(governanceData.proposalsById, nhash, id))
             else {
@@ -240,35 +246,33 @@ module {
             #ok();
         };
 
+        func isDifferentState(p1 : PT.Proposal, p2 : PT.Proposal) : Bool {
+            return p1.status != p2.status or p1.deadlineTimestampSeconds != p2.deadlineTimestampSeconds;
+        };
+
         public func processAndUpdateProposals(governanceData : TT.GovernanceData, _proposals: [PT.Proposal]) : Result.Result<([PT.ProposalAPI], [PT.ProposalAPI]), Text> {
             let newProposal = Buffer.Buffer<PT.ProposalAPI>(50);
-            let executedProposals = Buffer.Buffer<PT.ProposalAPI>(50);
+            let updatedProposals = Buffer.Buffer<PT.ProposalAPI>(50);
             let sortedProposals = Array.sort(_proposals, compareIds);
-            Debug.print(debug_show(sortedProposals));
+            //Debug.print(debug_show(sortedProposals));
             label processDelta for (pa in Array.vals(sortedProposals)){
                 switch(Map.get(governanceData.proposalsById, nhash, pa.id)){
                     case (?v) {
                         //existing proposal, check if state changed
-                        if(pa.status != v.data.status){
-                            switch(pa.status){
-                                case(#Executed(e)){
-                                    //update proposal
-                                    updateProposal(governanceData, pa);
-                                    executedProposals.add({v.data with status = v.data.status});
-                                };
-                                case(_){};
-                            };
+                        if(isDifferentState(pa, v.data)){
+                            updatedProposals.add(PM.proposalToAPI(v.data));
+                            updateProposal(governanceData, pa);
                         };
                     };
                     case (_) {
                         //doesnt exist, add it
                         addProposal(governanceData, pa);
-                        newProposal.add({pa with status = pa.status});
+                        newProposal.add(PM.proposalToAPI(pa));
                     }
                 }
               };
             //Debug.print(debug_show(governanceData.proposalsById));
-            #ok(Buffer.toArray<PT.ProposalAPI>(newProposal), Buffer.toArray<PT.ProposalAPI>(executedProposals));
+            #ok(Buffer.toArray<PT.ProposalAPI>(newProposal), Buffer.toArray<PT.ProposalAPI>(updatedProposals));
          };
     };
     

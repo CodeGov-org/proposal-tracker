@@ -69,7 +69,7 @@ module {
         //proposalsByTopic : Map.Map<Int32, LinkedList.LinkedList<PT.Proposal>>; //sorted list of proposals indexed by topic id;
     };
 
-    //task is provided with: governance id, new and executedProposals proposals
-    public type TrackerServiceJob = (governanceId : Text, newProposals : [PT.ProposalAPI], executedProposals : [PT.ProposalAPI]) -> ();
+    //task is provided with: governance id, new and updated proposals
+    public type TrackerServiceJob = (governanceId : Text, newProposals : [PT.ProposalAPI], updatedProposals : [PT.ProposalAPI]) -> ();
     
 }
