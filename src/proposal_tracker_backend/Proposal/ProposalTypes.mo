@@ -21,6 +21,14 @@ module {
 //     proposer : ?NeuronId;
 //     executed_timestamp_seconds : Nat64;
 //   };
+
+    public type ListProposalArgs = {
+        includeRewardStatus :  [Int32];
+        omitLargeFields : ?Bool;
+        excludeTopic: [Int32];
+        includeAllManageNeuronProposals : ?Bool;
+        includeStatus : [Int32];
+    };
     public type Proposal = {
         id : ProposalId;
         topicId : Int32;

@@ -19,22 +19,29 @@ import TR "TrackerRepository";
 import Utils "../utils";
 import {DAY; HOUR; WEEK} "mo:time-consts";
 import LinkedList "mo:linked-list";
-
+import LT "../Log/LogTypes";
+import PS "../Proposal/ProposalService";
 module {
 
-    public class TrackerService(repository: TR.TrackerRepository, governanceService : GS.GovernanceService, args : TT.TrackerServiceArgs) {
+    public class TrackerService(repository: TR.TrackerRepository, governanceService : GS.GovernanceService, logService : LT.LogService, args : TT.TrackerServiceArgs) {
         let DEFAULT_TICKRATE : Nat = 10; // 10 secs 
-
+        let proposalService = PS.ProposalService(governanceService, logService);
 
         public func update(cb : TT.TrackerServiceJob) : async () {
             label timerUpdate for ((canisterId, governanceData) in Map.entries(repository.getAllGovernance())) {
                 //if lowestActiveProposalId is null, call pending proposal method and sync up until lowest active proposal id
                 if (Option.isNull(governanceData.lowestActiveProposalId)){
-                    Debug.print("lowestActiveProposalId is null, initializing with pending proposals");
+                    logService.logInfo("lowestActiveProposalId is null, initializing with pending proposals", ?"[TrackerService::update]");
                     let #ok(res) = await* governanceService.getPendingProposals(canisterId)
                     else {
-                        Debug.print("Error getting active proposals");
+                        logService.logError("Error getting active proposals", ?"[TrackerService::update]");
                         return;
+                    };
+
+                     //if no active proposals at init skip until there are
+                    if(Array.size(res)==0){
+                        logService.logInfo("no active proposals to initialize", ?"[TrackerService::update]");
+                        continue timerUpdate;
                     };
 
                     label fmin for(p in Array.vals(res)){
@@ -44,30 +51,22 @@ module {
                         };
                         if (Option.isNull(governanceData.lowestActiveProposalId) or Nat64.toNat(id.id) < Option.get(governanceData.lowestActiveProposalId, Nat64.toNat(id.id + 1))){
                             governanceData.lowestActiveProposalId := ?Nat64.toNat(id.id);
-                            Debug.print("lowestActiveProposalId set to: " # debug_show(id.id));
+                            logService.logInfo("lowestActiveProposalId set to: " # Nat64.toText(id.id), ?"[TrackerService::update]");
                         };
                     };
                 };
-                
-                //if no active proposals at init skip until there are
-                if (Option.isNull(governanceData.lowestActiveProposalId)){
-                    Debug.print("no active proposals to initialize");
-                    continue timerUpdate;
-                };
 
-                let res = await* governanceService.listProposalsAfterId(canisterId, governanceData.lowestActiveProposalId, {
-                    include_reward_status = [];
-                    omit_large_fields = ?true;
-                    before_proposal = null;
-                    limit = 50;
-                    exclude_topic = [];
-                    include_all_manage_neuron_proposals = null;
-                    include_status = [];
+                let res = await* proposalService.listProposalsFromId(canisterId, governanceData.lowestActiveProposalId, {
+                    includeRewardStatus = [];
+                    omitLargeFields = ?true;
+                    excludeTopic = [];
+                    includeAllManageNeuronProposals = null;
+                    includeStatus = [];
                 });
 
                 let #ok(newData) = res
                 else {
-                    Debug.print("Error getting proposals");
+                    logService.logError("Error getting proposals", ?"[TrackerService::update]");
                     continue timerUpdate;
                 };
 
@@ -76,8 +75,7 @@ module {
 
                 let #ok(newProposals, executedProposals) = repository.processAndUpdateProposals(governanceData, PM.mapGetProposals(newData.proposal_info))
                 else{
-                    //TODO: log;
-                    Debug.print("Error in processAndUpdateProposals");
+                    logService.logError("Error getting proposals processAndUpdateProposals", ?"[TrackerService::update]");
                     continue timerUpdate;
                 };
 
@@ -96,7 +94,6 @@ module {
             };
 
             let timerId =  ?Timer.recurringTimer<system>(#seconds(tickrate), func() : async () {
-                Debug.print("Tick");
                 await update(job);
             });
             ignore repository.setTimerId(timerId);
@@ -122,14 +119,38 @@ module {
 
             return await* initTimer(?newTickrate, job);
         };
+        
+        public func addGovernance(governancePrincipal : Text, topicStrategy : TT.TopicStrategy) : async* Result.Result<(), Text> {
+            if(repository.hasGovernance(governancePrincipal)){
+                return #err("Canister has already been added");
+            };
+
+            let res = await* governanceService.getMetadata(governancePrincipal);
+            switch(res){
+                case(#ok(metadata)){
+                    switch(await* proposalService.getValidTopicIds(governancePrincipal)){
+                        case(#ok(validTopics)){
+                            repository.addGovernance(governancePrincipal, metadata.name, metadata.description, filterValidTopics(validTopics, topicStrategy));
+                        };
+                        case(#err(err)){ return #err("Error fetching valid topics:" #err); }
+                    };
+                    
+                };
+                case(#err(err)){ return #err("Error fetching metadata:" #err); }
+            };
+        };
+
+        public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
+            repository.getProposals(canisterId, after, topics, ?100);
+        };
 
         func performCleanupStrategy(governanceData : TT.GovernanceData) : () {
             switch(args.cleanupStrategy){
-                case(#DeleteImmediately){
+                case(#DeleteAfterExecution){
                     for(p in LinkedList.vals(governanceData.proposals)){
                         if(not Map.has(governanceData.activeProposalsSet, nhash, p.id)){
-                        // proposal has executed, so it can be removed
-                        ignore repository.deleteProposal(governanceData, p.id);
+                            // proposal has executed, so it can be removed
+                            ignore repository.deleteProposal(governanceData, p.id);
                         }
                     }
                 };
@@ -150,15 +171,15 @@ module {
                         };
 
                         if(check){
-                        ignore repository.deleteProposal(governanceData, p.id);
+                            ignore repository.deleteProposal(governanceData, p.id);
                         }
                     }
                 };
             }
         };
 
-
-        func filterValidTopics(topics : [(Int32, Text, ?Text)], topicStrategy : TT.TopicsStrategy) : TT.Topics {
+        
+        func filterValidTopics(topics : [(Int32, Text, ?Text)], topicStrategy : TT.TopicStrategy) : TT.Topics {
             let topicMap : TT.Topics = Map.new();
             switch(topicStrategy){
                 case(#All){
@@ -187,31 +208,6 @@ module {
             };
             return topicMap;
         };
-        
-        
-        public func addGovernance(governancePrincipal : Text, topicStrategy : TT.TopicsStrategy) : async* Result.Result<(), Text> {
-            if(repository.hasGovernance(governancePrincipal)){
-                return #err("Canister has already been added");
-            };
-
-            let res = await* governanceService.getMetadata(governancePrincipal);
-            switch(res){
-                case(#ok(metadata)){
-                    switch(await* governanceService.getValidTopicIds(governancePrincipal)){
-                        case(#ok(validTopics)){
-                            repository.addGovernance(governancePrincipal, metadata.name, metadata.description, filterValidTopics(validTopics, topicStrategy));
-                        };
-                        case(#err(err)){ return #err("Error fetching valid topics:" #err); }
-                    };
-                    
-                };
-                case(#err(err)){ return #err("Error fetching metadata:" #err); }
-            };
-        };
-
-        public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : [Int32]) : Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
-            repository.getProposals(canisterId, after, topics, ?100);
-        }
 
     };
 }

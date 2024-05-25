@@ -69,14 +69,13 @@ module{
         })
      };
 
+    //TODO: return result
      public func mapGetProposals(nnsProposals : [G.ProposalInfo]) : [PT.Proposal] {
         var proposals = Buffer.Buffer<PT.Proposal>(50);
         for (nnsProposal in Array.vals(nnsProposals)) {
             switch (mapProposal(nnsProposal)) {
                 case (#ok(proposal)) { proposals.add(proposal)};
-                case (#err(err)) {
-                    //TODO: log
-                };
+                case (#err(err)) {};
             };
         };
         Buffer.toArray(proposals)

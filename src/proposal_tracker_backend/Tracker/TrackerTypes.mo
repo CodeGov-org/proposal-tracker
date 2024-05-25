@@ -8,17 +8,16 @@ module {
 
     public type TextPrincipal = Text;
 
-    // public type ProposalFilter = {topics : ?[Nat]; states : ?[PT.ProposalStatus]; height: ?Nat};
-
     public type GetProposalResponse = {
-        #Success : [PT.ProposalAPI];
+        #Success : {proposals : [PT.ProposalAPI]; lastId :?PT.ProposalId} ;
         #LimitReached : [PT.ProposalAPI]
     };
 
     public type GetProposalError = {
         #InvalidProposalId : {
-            start : PT.ProposalId;
-            end : PT.ProposalId;
+            start : ?PT.ProposalId;
+            lowestActive : ?PT.ProposalId;
+            end : ?PT.ProposalId;
         };
         #InternalError;
         #CanisterNotTracked;
@@ -28,7 +27,7 @@ module {
     public type TrackerServiceArgs = {
         cleanupStrategy : {
             //Using this if you want a fetch first model makes no sense, only use if you want to go pub/sub
-            #DeleteImmediately;
+            #DeleteAfterExecution;
             #DeleteAfterTime : {
                 #Days : Nat;
                 #Hours : Nat;
@@ -50,10 +49,18 @@ module {
             description : ?Text;
         }>;
 
-    public type TopicsStrategy = {
+    public type TopicStrategy = {
             #All;
             #Include : [Int32];
             #Exclude : [Int32];
+    };
+
+    public type GovernanceSettings = {
+        var includeRewardStatus :  [Int32];
+        var omitLargeFields : ?Bool;
+        var topicStrategy : TopicStrategy;
+        var includeAllManageNeuronProposals : ?Bool;
+        var includeStatus : [Int32];
     };
 
     public type GovernanceData = {

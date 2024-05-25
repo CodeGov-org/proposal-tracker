@@ -13,7 +13,9 @@ import Debug "mo:base/Debug";
 import Int32 "mo:base/Int32";
 import LinkedList "mo:linked-list";
 import Utils "../utils";
+import LT "../Log/LogTypes";
 
+//TODO: asserts for lowest <= lowestActive <= highest ids or lowest has some value but highest has none
 module {
 
     public func init() : TT.TrackerModel {
@@ -23,7 +25,7 @@ module {
         }
      };
 
-    public class TrackerRepository(trackerModel: TT.TrackerModel) {
+    public class TrackerRepository(trackerModel: TT.TrackerModel, logService : LT.LogService) {
 
         public func hasGovernance(canisterId: Text) : Bool {
             Map.has(trackerModel.trackedCanisters, thash, canisterId)
@@ -76,34 +78,74 @@ module {
             trackerModel.timerId
         };
 
+        func filterValidTopics(validTopics : TT.Topics, topicStrategy : TT.TopicStrategy) : Map.Map<Int32,()> {
+            let topicSet : Map.Map<Int32,()> = Map.new();
+            switch(topicStrategy){
+                case(#All){
+                    for(k in Map.keys(validTopics)){
+                        Map.set(topicSet, i32hash, k, ());
+                    }
+                };
+                case(#Include(ids)){
+                    if(Array.size(ids) == 0){
+                        for(k in Map.keys(validTopics)){
+                            Map.set(topicSet, i32hash, k, ());
+                        };
+                    };
+                    for(id in Array.vals(ids)){
+                        if(Map.has(validTopics, i32hash, id)){
+                            Map.set(topicSet, i32hash, id, ());
+                        }
+                    }
+                };
+                case(#Exclude(ids)){
+                    if(Array.size(ids) == 0){
+                        for(k in Map.keys(validTopics)){
+                            Map.set(topicSet, i32hash, k, ());
+                        };
+                    };
+                    for(id in Array.vals(ids)){
+                        if(not Map.has(validTopics, i32hash, id)){
+                            Map.set(topicSet, i32hash, id, ());
+                        }
+                    }
+                };
+            };
+            return topicSet;
+        };
+
         //TODO: handle manage neuron proposals causing blank spots in the list
         // if no topics are provided then all proposals are returned
-        public func getProposals(canisterId: Text, _after : ?PT.ProposalId, topics : [Int32], limit : ?Nat) : Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
+        public func getProposals(canisterId: Text, _after : ?PT.ProposalId, topics : TT.TopicStrategy, limit : ?Nat) : Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
             switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
                 case (?canister) {
                     let #ok(after) = Utils.optToRes(_after)
                     else{
-                        return #err(#InvalidProposalId{start = Option.get(canister.lowestProposalId, 0); end = Option.get(canister.lastProposalId, 0)});
-                    };
-                    if (Option.isNull(canister.lowestProposalId) or Option.isNull(canister.lastProposalId) or after < Option.get(canister.lowestProposalId, 0) or after > Option.get(canister.lastProposalId, after + 1)) {
-                        return #err(#InvalidProposalId{start = Option.get(canister.lowestProposalId, 0); end = Option.get(canister.lastProposalId, 0)});
+                        return #err(#InvalidProposalId{start = canister.lowestProposalId; lowestActive = canister.lowestActiveProposalId; end = canister.lastProposalId});
                     };
 
-                    if(after == Option.get(canister.lastProposalId, after + 1)){
-                        return #ok(#Success([]));
+                    let #ok(lowestProposalId) = Utils.optToRes(canister.lowestProposalId)
+                    else {
+                        return #err(#InvalidProposalId{start = canister.lowestProposalId; lowestActive = canister.lowestActiveProposalId; end =canister.lastProposalId});
+                    };
+
+                    let #ok(lastProposalId) = Utils.optToRes(canister.lastProposalId)
+                    else{
+                        return #err(#InvalidProposalId{start = canister.lowestProposalId; lowestActive = canister.lowestActiveProposalId; end =canister.lastProposalId});
+                    };
+
+                    if (after < lowestProposalId or after > lastProposalId) {
+                        return #err(#InvalidProposalId{start = canister.lowestProposalId; lowestActive = canister.lowestActiveProposalId; end =canister.lastProposalId});
+                    };
+
+                    if(after == lastProposalId){
+                        return #ok(#Success({proposals = []; lastId = canister.lastProposalId}));
                     };
 
                     let buf = Buffer.Buffer<PT.ProposalAPI>(100);
 
                     //verify at least one topic is valid and create a set for more efficient checks later
-                    let topicSet = Map.new<Int32,()>();
-                    label it for(topicId in Array.vals(topics)){
-                        if(not Map.has(canister.topics, i32hash, topicId)){
-                            continue it;
-                        };
-
-                        Map.set(topicSet, i32hash, topicId, ());
-                    };
+                    let topicSet = filterValidTopics(canister.topics, topics);
 
                     if (Map.size(topicSet) == 0){
                         return #err(#InvalidTopic);
@@ -131,7 +173,7 @@ module {
                                     case(_){};
                                 }
                             };
-                            return #ok(#Success(Buffer.toArray<PT.ProposalAPI>(buf)));
+                            return #ok(#Success({proposals = Buffer.toArray<PT.ProposalAPI>(buf); lastId = canister.lastProposalId}));
                         };
                         case (_) {
                             return #err(#InternalError);
@@ -141,17 +183,6 @@ module {
                  };
                 case (_) { #err(#CanisterNotTracked)}
             }
-        };
-
-
-        func compareIds(a : PT.Proposal, b : PT.Proposal) : Order.Order {
-            if(a.id > b.id){
-                return #greater;
-            }else if(a.id < b.id){
-                return #less;
-            }else{
-                return #equal;
-            };
         };
 
         func addProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) {
@@ -181,9 +212,16 @@ module {
                 governanceData.lastProposalId := ?proposal.id;
             };
 
-            //init during first run
-            if(Option.isNull(governanceData.lowestProposalId)){
-                governanceData.lowestProposalId := ?proposal.id;
+            //init lowestProposalId when it is null on first run or update it in case we are syncing backwards
+            switch(governanceData.lowestProposalId){
+                case(?v){
+                    if(v < proposal.id){
+                        governanceData.lowestProposalId := ?proposal.id;
+                    };
+                };
+                case(_){
+                    governanceData.lowestProposalId := ?proposal.id;
+                }
             };
         };
 
@@ -194,8 +232,7 @@ module {
                     p.data.deadlineTimestampSeconds := proposal.deadlineTimestampSeconds;
                 };
                 case(_) {
-                    //ERROR TODO: Log
-                    //Logger.log(#Warning, "Proposal not found");
+                    logService.logError("Proposal not found", ?"[TrackerRepository::updateProposal]");
                 }
             };
 
@@ -246,15 +283,11 @@ module {
             #ok();
         };
 
-        func isDifferentState(p1 : PT.Proposal, p2 : PT.Proposal) : Bool {
-            return p1.status != p2.status or p1.deadlineTimestampSeconds != p2.deadlineTimestampSeconds;
-        };
-
         public func processAndUpdateProposals(governanceData : TT.GovernanceData, _proposals: [PT.Proposal]) : Result.Result<([PT.ProposalAPI], [PT.ProposalAPI]), Text> {
             let newProposal = Buffer.Buffer<PT.ProposalAPI>(50);
             let updatedProposals = Buffer.Buffer<PT.ProposalAPI>(50);
             let sortedProposals = Array.sort(_proposals, compareIds);
-            //Debug.print(debug_show(sortedProposals));
+
             label processDelta for (pa in Array.vals(sortedProposals)){
                 switch(Map.get(governanceData.proposalsById, nhash, pa.id)){
                     case (?v) {
@@ -271,9 +304,24 @@ module {
                     }
                 }
               };
-            //Debug.print(debug_show(governanceData.proposalsById));
+
             #ok(Buffer.toArray<PT.ProposalAPI>(newProposal), Buffer.toArray<PT.ProposalAPI>(updatedProposals));
          };
+
+        func isDifferentState(p1 : PT.Proposal, p2 : PT.Proposal) : Bool {
+            return p1.status != p2.status or p1.deadlineTimestampSeconds != p2.deadlineTimestampSeconds;
+        };
+
+        func compareIds(a : PT.Proposal, b : PT.Proposal) : Order.Order {
+            if(a.id > b.id){
+                return #greater;
+            }else if(a.id < b.id){
+                return #less;
+            }else{
+                return #equal;
+            };
+        };
+
     };
     
 };
