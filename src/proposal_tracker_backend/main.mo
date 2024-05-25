@@ -16,16 +16,18 @@ import Fuzz "mo:fuzz";
 import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
-import NS "./Notifier/ProposalNotifierService";
+import LogService "./Log/LogService";
+import LT "./Log/LogTypes"
 actor class ProposalTrackerBackend() = {
 
   //TODO: reset timer after upgrade
 
-
+  stable let logs = LogService.initLogModel();
+  let logService = LogService.LogServiceImpl(logs, 100, true);
   stable let trackerData = TR.init();
-  let trackerRepository = TR.TrackerRepository(trackerData);
+  let trackerRepository = TR.TrackerRepository(trackerData, logService);
   let governanceService = GS.GovernanceService();
-  let trackerService = TS.TrackerService(trackerRepository, governanceService, {
+  let trackerService = TS.TrackerService(trackerRepository, governanceService, logService, {
     cleanupStrategy = #DeleteAfterTime(#Days(7));
   });
 
@@ -34,12 +36,11 @@ actor class ProposalTrackerBackend() = {
       Debug.print("Tick");
       Debug.print("new proposals: " # debug_show(new));
       Debug.print("updated proposals: " # debug_show(updated));
-      Debug.print("governanceId: " # governanceId);
-     //ProposalNotifierService.notify(governanceId, new, executed);
+      Debug.print("governanceId: " # governanceId);;
     });
   };
 
-  public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : [Int32]) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
+  public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
     trackerService.getProposals(canisterId, after, topics);
   };
 
@@ -76,6 +77,21 @@ actor class ProposalTrackerBackend() = {
 
   public func testRunUpdate() : async (){
     await trackerService.update(func (i, j, k) : (){});
+  };
+
+  //////////////////////////
+  ////////////////// LOGS
+  //////////////////////////
+  public func getLogs(filter : ?LT.LogFilter) : async [LT.Log] {
+    logService.getLogs(filter);
+  };
+
+  public func clearLogs() : async Result.Result<(), Text> {
+    // if (not G.isCustodian(caller, custodians)) {
+    //   return #err("Not authorized");
+    // };
+    logService.clearLogs();
+    #ok()
   };
 
   // public func testGetProposals() : async [ PT.Proposal] {
