@@ -36,7 +36,7 @@ actor class ProposalTrackerBackend() = {
       Debug.print("Tick");
       Debug.print("new proposals: " # debug_show(new));
       Debug.print("updated proposals: " # debug_show(updated));
-      Debug.print("governanceId: " # governanceId);;
+      Debug.print("governanceId: " # governanceId);
     });
   };
 
