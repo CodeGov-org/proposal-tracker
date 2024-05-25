@@ -56,7 +56,7 @@ module {
                     };
                 };
 
-                let res = await* proposalService.listProposalsFromId(canisterId, governanceData.lowestActiveProposalId, {
+                let res = await* proposalService.listProposalsAfterd(canisterId, governanceData.lowestActiveProposalId, {
                     includeRewardStatus = [];
                     omitLargeFields = ?true;
                     excludeTopic = [];
