@@ -26,6 +26,7 @@ module {
             }
         };
 
+        //todo: change for sns
         public func getPendingProposals(governanceId : Text) : async* Result.Result<[GT.ProposalInfo], Text>{
             let gc : GT.GovernanceCanister = actor(governanceId);
             try{
@@ -61,76 +62,15 @@ module {
             }
         };
 
-
-    //     public func getValidTopicIds(governanceId : Text) : async* Result.Result<[(Int32, Text, ?Text)], Text>{
-    //         if (governanceId == NNS_GOVERNANCE_ID){
-    //             return #ok(GU.NNSFunctions);
-    //         };
-    //         let buf = Buffer.Buffer<(Int32, Text, ?Text)>(50);
-    //         let res = await* getGovernanceFunctions(governanceId);
-    //         switch(res){
-    //             case(#ok(res)){
-    //                 for(function in Array.vals(res.functions)){
-    //                     buf.add((Int32.fromInt64(Int64.fromNat64(function.id))), function.name, function.description);
-    //                 };
-    //                 return #ok(Buffer.toArray(buf));
-    //             };
-    //             case(#err(err)){
-    //                 return #err(err);
-    //             };
-    //         };
-    //     };
-
-    //     public func listProposalsAfterId(governanceId : Text, _after : ?Nat, info :  GT.ListProposalInfo) : async* Result.Result<GT.ListProposalInfoResponse, Text>{
-    //         let #ok(after) = Utils.optToRes(_after)
-    //         else{
-    //             return await* listProposals(governanceId, info);
-    //         };
-            
-    //         let proposalBuffer = Buffer.Buffer<GT.ProposalInfo>(BATCH_SIZE_LIMIT);
-                    
-    //         var curr : ?GT.NeuronId = null;
-    //         label sync loop {
-    //             let res = await* listProposals(governanceId, {
-    //                 info with
-    //                 before_proposal = curr
-    //             });
-    //             switch(res){
-    //                 case(#ok(res)){
-    //                     var min = res.proposal_info[0].id;
-    //                     for (proposal in Array.vals(res.proposal_info)){
-    //                         proposalBuffer.add(proposal);
-
-    //                         switch((proposal.id)){
-    //                             case((?p)){
-    //                                 if(Nat64.toNat(p.id) == after){
-    //                                     break sync;
-    //                                 };
-                                    
-    //                                 switch(min){
-    //                                     case((?m)){
-    //                                         if(p.id < m.id){
-    //                                             min := ?p;
-    //                                         };
-    //                                     };
-    //                                     case(_){};
-    //                                 }
-    //                             };
-    //                             case(_){
-    //                                 return #err("broken invariant in listProposalsAfterId")
-    //                             };
-    //                         };
-
-    //                     };
-    //                     curr := min;
-    //                 };
-    //                 case(#err(err)){
-    //                     return #err(err);
-    //                 };
-    //         };
-    //     };
-    //     #ok({proposal_info = Buffer.toArray(proposalBuffer)}); 
-    // }
+        public func listNeurons(governanceId : Text, args :  GT.ListNeurons) : async* Result.Result<GT.ListNeuronsResponse, Text>{
+            let gc : GT.GovernanceCanister = actor(governanceId);
+            try{
+                let res = await gc.list_neurons(args);
+                #ok(res)
+            } catch(e){
+                return #err(Error.message(e))
+            }
+        };
     }
 
 }
