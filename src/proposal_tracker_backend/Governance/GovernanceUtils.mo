@@ -1,4 +1,5 @@
 module{
+
     public let NNSFunctions : [(Int32, Text, ?Text)] = [
         (0, "Unspecified", null),
         (1, "CreateSubnet", null),
@@ -52,5 +53,70 @@ module{
         (50, "ReviseElectedHostosVersions", null),
         (51, "DeployHostosToSomeNodes", null)
     ];
+
+   public type NNSTopic = {
+        #Unspecified;
+        #ManageNeuron;
+        #ExchangeRate;
+        #NetworkEconomics;
+        #Governance;
+        #NodeAdmin;
+        #ParticipantManagement;
+        #SubnetManagement;
+        #NetworkCanisterManagement;
+        #Kyc;
+        #NodeProviderRewards;
+        // @deprecated
+        #SnsDecentralizationSale;
+        #SubnetReplicaVersionManagement;
+        #ReplicaVersionManagement;
+        #SnsAndCommunityFund;
+        #ApiBoundaryNodeManagement;
+        #SubnetRental;
+    };
+
+   public type NNSVote = {
+        #Unspecified; //0
+        #Yes; //1
+        #No; //2
+    };
+
+    public type ProposalRewardStatus = {
+        #Unknown; //0
+
+        // The proposal still accept votes, for the purpose of
+        // vote rewards. This implies nothing on the ProposalStatus.
+        #AcceptVotes; //1
+
+        // The proposal no longer accepts votes. It is due to settle
+        // at the next reward event.
+        #ReadyToSettle; //2
+
+        // The proposal has been taken into account in a reward event.
+        #Settled; //3
+
+        // The proposal is not eligible to be taken into account in a reward event.
+        #Ineligible; //4
+    };
+
+    public type ProposalStatus = {
+        #Unknown; //0
+
+        // A decision (accept/reject) has yet to be made.
+        #Open; //1
+
+        // The proposal has been rejected.
+        #Rejected;
+
+        // The proposal has been accepted. At this time, either execution
+        // as not yet started, or it has but the outcome is not yet known.
+        #Accepted;
+
+        // The proposal was accepted and successfully executed.
+        #Executed;
+
+        // The proposal was accepted, but execution failed.
+        #Failed;
+    }
 
 }
