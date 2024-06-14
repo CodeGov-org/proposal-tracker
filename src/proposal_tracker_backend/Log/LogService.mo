@@ -25,7 +25,7 @@ module {
                 context = _context;
             };  
 
-            logModel.logs := List.push(log, logModel.logs);
+            logModel.logs := List.append(logModel.logs, List.make<LT.Log>(log));
             if (List.size(logModel.logs) > maxLogSize){
                 let (_, tmp) = List.pop(logModel.logs);
                 logModel.logs := tmp;
