@@ -78,9 +78,8 @@ module {
         proposals : Map.Map<GovernanceId, Map.Map<ProposalId, Proposal>>;
         subscribers : Map.Map<Principal, List.List<TallyData>>;
 
-        talliesIdByNeuron : Map.Map<GovernanceId, Map.Map<NeuronId, List.List<TallyId>>>;
+        talliesByNeuron : Map.Map<GovernanceId, Map.Map<NeuronId, List.List<TallyData>>>; //TODO: init
         talliesById : Map.Map<TallyId, TallyData>;
-        //subscribersByTally : Map.Map<TallyId, [Principal]>;
 
         var lastId : Nat;
     };
@@ -99,6 +98,63 @@ module {
 
                 await* update(governanceId, new, updated);
             });
+        };
+
+        public func addTally(args : AddTallyArgs) : async* Result.Result<(), Text> {
+            let governanceId = args.governanceId;
+            let res = await* trackerService.addGovernance(governanceId, #All);
+
+            switch(res) {
+                case(#ok()){};
+                case(#err(err)){ return #err(err);}
+            };
+
+            let tallyId : Nat = tallyModel.lastId + 1;
+            tallyModel.lastId := tallyId;
+            let topicSet = Utils.arrayToSet(args.topics, i32hash);
+            let tally : TallyData = {id = tallyId; governanceCanister = governanceId; topics = topicSet; neurons = Utils.arrayToSet(args.neurons, n64hash); ballots = Map.new<ProposalId, NeuronVote>()};
+            let tallyMap = Utils.getElseCreate(tallyModel.tallies, thash, governanceId, Map.new<TallyId, TallyData>());
+            Map.set(tallyMap, nhash, tallyId, tally);
+
+            switch(args.subscriber) {
+                case(?subscriber) {
+                    let subTallies = Utils.getElseCreate(tallyModel.subscribers, phash, subscriber, List.nil());
+                    Map.set(tallyModel.subscribers, phash, subscriber, List.push(tally, subTallies));
+                };
+                case(_) {};
+            };
+
+            Map.set(tallyModel.talliesById, nhash, tallyId, tally);
+            
+            let neuronMap = Utils.getElseCreate(tallyModel.neurons, thash, governanceId, Map.new<NeuronId, NeuronData>());
+            let tallyByNeuronMap = Utils.getElseCreate(tallyModel.talliesByNeuron, thash, governanceId, Map.new<NeuronId, List.List<TallyData>>());
+            for(neuronId in args.neurons.vals()){
+                switch(Map.get(neuronMap, n64hash, neuronId)){
+                    case(?neuron) {
+                        for(topic in Map.keys(topicSet)){
+                            Map.set(neuron.topics, i32hash, topic, ());
+                        };
+
+                        Map.set(neuronMap, n64hash, neuronId, {neuron with tallies = List.push(tallyId, neuron.tallies)});
+                    };
+                    case(_){
+                        Map.set(neuronMap, n64hash, neuronId, {id = neuronId; topics = topicSet; tallies = List.push(tallyId, List.nil<TallyId>())});
+                    };
+                };
+
+                switch(Map.get(tallyByNeuronMap, n64hash, neuronId)){
+                    case(?tallies) {
+                        Map.set(tallyByNeuronMap, n64hash, neuronId, List.push(tally, tallies));
+                    };
+                    case(_){
+                        var tallyList = List.nil<TallyData>();
+                        tallyList := List.push(tally, tallyList);
+                        Map.set(tallyByNeuronMap, n64hash, neuronId, tallyList);
+                    };
+                }
+            };
+
+            #ok()
         };
 
         public func update(governanceId : Text, newProposals : [PT.ProposalAPI], changedProposals : [PT.ProposalAPI]) : async* () {
@@ -171,7 +227,7 @@ module {
         func notifySubscribers(governanceId : Text, delta : List.List<(NeuronId, List.List<ProposalId>)>) :  async* (){
             let affectedTallies = Map.new<TallyId, List.List<Proposal>>();
             label l for((neuron, proposalList) in List.toIter(delta)){
-                let #ok(neuronTallies) = Result.fromOption(Map.get(tallyModel.talliesIdByNeuron, thash, governanceId), #err("not found"))
+                let #ok(neuronTallies) = Result.fromOption(Map.get(tallyModel.talliesByNeuron, thash, governanceId), #err("not found"))
                 else {
                     continue l;
                 };
@@ -179,11 +235,7 @@ module {
                 switch(Map.get(neuronTallies, n64hash, neuron)){
                     case(?tallies){
                         var relatedProposals = List.nil<Proposal>();
-                        for(tallyId in List.toIter(tallies)) {
-                            let #ok(tally) = Result.fromOption(Map.get(tallyModel.talliesById, nhash, tallyId), #err("not found"))
-                            else {
-                                continue l;
-                            };
+                        for(tally in List.toIter(tallies)) {
 
                             for(proposalId in List.toIter(proposalList)) {
                                 let #ok(proposal) = getProposal(governanceId, proposalId)
@@ -195,7 +247,7 @@ module {
                                 };
                             };
                             if(List.size(relatedProposals) > 0) {
-                                Map.set(affectedTallies, nhash, tallyId, relatedProposals);
+                                Map.set(affectedTallies, nhash, tally.id, relatedProposals);
                             }
                         };
                     };
@@ -299,52 +351,6 @@ module {
         func notifySubscriber(governanceId : Text, tallies : [TallyTypes.TallyFeed]) : async* () {
             let sub : TallyTypes.Subscriber = actor (governanceId);
             await sub.tallyUpdate(tallies);
-        };
-
-        public func addTally(args : AddTallyArgs) : async* Result.Result<(), Text> {
-            let governanceId = args.governanceId;
-            let res = await* trackerService.addGovernance(governanceId, #All);
-
-            switch(res) {
-                case(#ok()){};
-                case(#err(err)){ return #err(err);}
-            };
-
-            let tallyId : Nat = tallyModel.lastId + 1;
-            tallyModel.lastId := tallyId;
-            let topicSet = Utils.arrayToSet(args.topics, i32hash);
-            let tally : TallyData = {id = tallyId; governanceCanister = governanceId; topics = topicSet; neurons = Utils.arrayToSet(args.neurons, n64hash); ballots = Map.new<ProposalId, NeuronVote>()};
-            let tallyMap = Utils.getElseCreate(tallyModel.tallies, thash, governanceId, Map.new<TallyId, TallyData>());
-            Map.set(tallyMap, nhash, tallyId, tally);
-
-            switch(args.subscriber) {
-                case(?subscriber) {
-                    //Map.set(tallyModel.subscribersByTally, nhash, tallyId, [subscriber]);
-                    let subTallies = Utils.getElseCreate(tallyModel.subscribers, phash, subscriber, List.nil());
-                    Map.set(tallyModel.subscribers, phash, subscriber, List.push(tally, subTallies));
-                };
-                case(_) {};
-            };
-
-            Map.set(tallyModel.talliesById, nhash, tallyId, tally);
-            
-            let neuronMap = Utils.getElseCreate(tallyModel.neurons, thash, governanceId, Map.new<NeuronId, NeuronData>());
-            for(neuronId in args.neurons.vals()){
-                switch(Map.get(neuronMap, n64hash, neuronId)){
-                    case(?neuron) {
-                        for(topic in Map.keys(topicSet)){
-                            Map.set(neuron.topics, i32hash, topic, ());
-                        };
-
-                        Map.set(neuronMap, n64hash, neuronId, {neuron with tallies = List.push(tallyId, neuron.tallies)});
-                    };
-                    case(_){
-                        Map.set(neuronMap, n64hash, neuronId, {id = neuronId; topics = topicSet; tallies = List.push(tallyId, List.nil<TallyId>())});
-                    };
-                };  
-            };
-
-            #ok()
         };
 
         func getNeuronChunks(map : Map.Map<NeuronId, NeuronData>) : List.List<[Nat64]> {
