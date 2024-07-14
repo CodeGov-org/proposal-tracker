@@ -20,7 +20,7 @@ import LogService "./Log/LogService";
 import LT "./Log/LogTypes"
 actor class ProposalTrackerBackend() = {
 
-  //TODO: reset timer after upgrade
+  //TODO: set timer after upgrade
 
   stable let logs = LogService.initLogModel();
   let logService = LogService.LogServiceImpl(logs, 100, true);
@@ -31,14 +31,14 @@ actor class ProposalTrackerBackend() = {
     cleanupStrategy = #DeleteAfterTime(#Days(7));
   });
 
-  public func start() : async Result.Result<(), Text> {
-    await* trackerService.initTimer(?300, func(governanceId, new, updated) : () {
-      Debug.print("Tick");
-      Debug.print("new proposals: " # debug_show(new));
-      Debug.print("updated proposals: " # debug_show(updated));
-      Debug.print("governanceId: " # governanceId);
-    });
-  };
+  // public func start() : async Result.Result<(), Text> {
+  //   await* trackerService.initTimer(?300, func(governanceId, new, updated) : () {
+  //     Debug.print("Tick");
+  //     Debug.print("new proposals: " # debug_show(new));
+  //     Debug.print("updated proposals: " # debug_show(updated));
+  //     Debug.print("governanceId: " # governanceId);
+  //   });
+  // };
 
   public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
     trackerService.getProposals(canisterId, after, topics);
@@ -48,7 +48,7 @@ actor class ProposalTrackerBackend() = {
     await* trackerService.addGovernance("rrkah-fqaaa-aaaaa-aaaaq-cai", #All);
   };
 
-  public func testSetLowestActiveId(canisterId: Text, id : ?Nat) : async Result.Result<(), Text> {
+  public func testSetLowestActiveId(canisterId: Text, id : ?Nat64) : async Result.Result<(), Text> {
     let tc = Map.get(trackerData.trackedCanisters, thash, canisterId);
     switch(tc) {
       case(?e){
@@ -62,7 +62,7 @@ actor class ProposalTrackerBackend() = {
     
   };
 
-  public func testGetLowestActiveId(canisterId: Text,) : async Result.Result<?Nat, Text>{
+  public func testGetLowestActiveId(canisterId: Text,) : async Result.Result<?Nat64, Text>{
     let tc = Map.get(trackerData.trackedCanisters, thash, canisterId);
     switch(tc) {
       case(?e){
@@ -75,9 +75,9 @@ actor class ProposalTrackerBackend() = {
   };
 
 
-  public func testRunUpdate() : async (){
-    await trackerService.update(func (i, j, k) : (){});
-  };
+  // public func testRunUpdate() : async (){
+  //   await trackerService.update(func (i, j, k) : (){});
+  // };
 
   //////////////////////////
   ////////////////// LOGS
