@@ -19,24 +19,6 @@ import GM "../Governance/GovernanceMappings";
 
 module {
 
-    public type ProposalStatus = {
-        #Over : {#Approved; #Rejected;};
-        #Pending;
-    };
-
-    public type TallyVote = {
-        #Approved;
-        #Rejected;
-        #Abstained;
-        #Pending;
-    };
-
-    public type VoteRecord = {
-        neuronId : NeuronId;
-        displayName : ?Text;
-        vote : NeuronVote;
-    };
-
     type ProposalType = {
         #NNS;
         #SNS : Principal;
@@ -45,10 +27,10 @@ module {
     public type TallyFeed = {
         tallyId : Text;
         proposalId : Nat;
-        votes : [VoteRecord];
-        proposalStatus : ProposalStatus;
+        votes : [TallyTypes.VoteRecord];
+        proposalStatus : PT.ProposalStatus;
         governanceId : Text;
-        tallyStatus : TallyVote;
+        tallyStatus : TallyTypes.Vote;
     };
 
     public type AddTallyArgs = {
@@ -65,10 +47,10 @@ module {
         #No;
     };
 
-    type GovernanceId = Text;
-    type NeuronId = Nat64;
-    type TallyId = Nat;
-    type ProposalId = Nat64;
+    type GovernanceId = TallyTypes.GovernanceId;
+    type NeuronId = TallyTypes.NeuronId;
+    type TallyId = TallyTypes.TallyId;
+    type ProposalId = TallyTypes.ProposalId;
 
     type NeuronData = {
         id : NeuronId;
@@ -174,10 +156,6 @@ module {
             }
         };
 
-        // func filterProposalsByTopic(governanceId : Text, topics : [Int32]) : [PT.ProposalAPI] {
-
-        // };
-
         func getProposal(governanceId : Text, proposalId : ProposalId) : Result.Result<Proposal, Text> {
             let #ok(proposalMap) = Result.fromOption(Map.get(tallyModel.proposals, thash, governanceId), #err("not found"))
             else {
@@ -229,11 +207,16 @@ module {
                 for((sub, tallies) in Map.entries(tallyModel.subscribers)){
                     let tallyChunk = Buffer.Buffer<TallyTypes.TallyFeed>(100);
                     for(tally in tallies.vals()) {
-                        if(Map.has(affectedTallies, nhash, tally)){
-                            tallyChunk.add(processTally(tallyId));
-                            if(tallyChunk.size() >= 100) {
-                                await* updateSubscriber(governanceId, Buffer.toArray(tallyChunk));
-                                tallyChunk.clear();
+                        if(Map.has(affectedTallies, nhash, tally.id)){
+                            switch(Map.get(affectedTallies, nhash, tally.id)){
+                                case(?proposals){
+                                    tallyChunk.add(processTally(tally, proposals));
+                                    if(tallyChunk.size() >= 100) {
+                                        await* updateSubscriber(governanceId, Buffer.toArray(tallyChunk));
+                                        tallyChunk.clear();
+                                    }
+                                };
+                                case(_){};
                             }
                         };
                     };
@@ -247,20 +230,22 @@ module {
             };
         };
 
-        func updateSubscriber(governanceId : Text, tallies : [TallyTypes.TallyFeed]) : async* () {
-            let sub : TallyTypes.Subscriber = actor (governanceId);
-            await sub.tallyUpdate(tallies);
+        func processTally(tally: TallyData, proposals : List.List<Proposal>) : TallyTypes.TallyFeed{
+            {
+                tallyId= tally.id;
+                governanceCanister = tally.governanceCanister;
+                ballots = processTallyBallots(tally, proposals);
+            };
+
         };
 
         func processTallyBallots(tally: TallyData, proposals : List.List<Proposal>) : [TallyTypes.Ballot]{
             let ballots = Buffer.Buffer<TallyTypes.Ballot>(List.size(proposals));
             let neuronNumber = Map.size(tally.neurons);
-            var approves = 0;
-            var rejects = 0;
 
             for(neuron in Map.keys(tally.neurons)) {
                 for(proposal in List.toIter(proposals)) {
-                    ballots.add(processTallyBallot(tally, proposal, neuronNumber));
+                    ballots.add(processTallyBallot(tally.neurons, proposal, neuronNumber));
                 }
             };
 
@@ -270,13 +255,13 @@ module {
         func processTallyBallot(neurons : Map.Map<NeuronId, ()>, proposal : Proposal, neuronNumber : Nat) : TallyTypes.Ballot{
             var approves = 0;
             var rejects = 0;
-            var tallyVote : TallyVote = #Pending;
-            let neuronVotes = Buffer.Buffer<VoteRecord>(neuronNumber);
+            var tallyVote : TallyTypes.Vote = #Pending;
+            let neuronVotes = Buffer.Buffer<TallyTypes.VoteRecord>(neuronNumber);
 
             for(neuron in Map.keys(neurons)) {
-                let neuronVote = {
-                    neuronId = neuron;
-                    displayName = null;
+                let neuronVote : TallyTypes.VoteRecord = {
+                    neuronId : NeuronId = neuron;
+                    displayName : ?Text = null;
                     vote = #Pending;
                 };
 
@@ -290,8 +275,8 @@ module {
                         }
                     };
                     case(_){
-                        if(isProposalSettled(proposal)){
-                            neuronVotes.add({neuronVote with vote = #Abstain});
+                        if(proposal.isSettled){
+                            neuronVotes.add({neuronVote with vote = #Abstained});
                         } else {
                             neuronVotes.add(neuronVote);
                         };
@@ -300,27 +285,23 @@ module {
             };
 
             if(approves > neuronNumber / 2){
-                tallyVote := #Approved;
+                tallyVote := #Yes;
             } else if (rejects > neuronNumber / 2) {
-                tallyVote := #Rejected;
-            } else if (isProposalSettled(proposal)){
-                tallyVote := #Abstain;
+                tallyVote := #No;
+            } else if (proposal.isSettled){
+                tallyVote := #Abstained;
             };
 
             {
                 proposalId = proposal.id;
                 tallyVote = tallyVote;
-                neuronVotes = Buffer.toArray<VoteRecord>(neuronVotes);
+                neuronVotes = Buffer.toArray<TallyTypes.VoteRecord>(neuronVotes);
             };
         };
 
-        func processTally(tally: TallyData, proposals : List.List<Proposal>) : TallyTypes.TallyFeed{
-            {
-                tallyId= tally.id;
-                governanceCanister = tally.governanceCanister;
-                ballots = processTallyBallots(tally, proposals);
-            };
-
+        func updateSubscriber(governanceId : Text, tallies : [TallyTypes.TallyFeed]) : async* () {
+            let sub : TallyTypes.Subscriber = actor (governanceId);
+            await sub.tallyUpdate(tallies);
         };
 
         public func addTally(args : AddTallyArgs) : async* Result.Result<(), Text> {
@@ -335,7 +316,7 @@ module {
             let tallyId : Nat = tallyModel.lastId + 1;
             tallyModel.lastId := tallyId;
             let topicSet = Utils.arrayToSet(args.topics, i32hash);
-            let tally : TallyData = {topics = topicSet; neurons = Utils.arrayToSet(args.neurons, n64hash); ballots = Map.new<ProposalId, NeuronVote>()};
+            let tally : TallyData = {id = tallyId; governanceCanister = governanceId; topics = topicSet; neurons = Utils.arrayToSet(args.neurons, n64hash); ballots = Map.new<ProposalId, NeuronVote>()};
             let tallyMap = Utils.getElseCreate(tallyModel.tallies, thash, governanceId, Map.new<TallyId, TallyData>());
             Map.set(tallyMap, nhash, tallyId, tally);
 

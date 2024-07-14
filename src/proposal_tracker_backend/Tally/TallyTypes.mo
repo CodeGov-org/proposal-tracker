@@ -21,16 +21,20 @@ module {
       #Failed;
   };
 
+    public type GovernanceId = Text;
+    public type NeuronId = Nat64;
+    public type TallyId = Nat;
+    public type ProposalId = Nat64;
 
 public type Vote = {
-    #Approved;
-    #Rejected;
+    #Yes;
+    #No;
     #Abstained;
     #Pending;
   };
 
   public type VoteRecord = {
-    neuronId : Nat;
+    neuronId : NeuronId;
     displayName : ?Text;
     vote : Vote;
   };
@@ -40,7 +44,6 @@ public type Vote = {
     tallyVote : Vote;
     neuronVotes : [VoteRecord];
   };
-  type TallyId = Nat;
 
   public type TallyFeed = {
     tallyId : TallyId;
