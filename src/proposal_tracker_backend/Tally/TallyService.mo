@@ -8,7 +8,7 @@ import Array "mo:base/Array";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
 import PT "../Proposal/ProposalTypes";
-import { nhash; thash; n64hash; i32hash} "mo:map/Map";
+import { nhash; thash; phash; n64hash; i32hash} "mo:map/Map";
 import GS "../Governance/GovernanceService";
 import LT "../Log/LogTypes";
 import GT "../Governance/GovernanceTypes";
@@ -76,18 +76,16 @@ module {
         neurons : Map.Map<GovernanceId, Map.Map<NeuronId, NeuronData>>;
         tallies : Map.Map<GovernanceId, Map.Map<TallyId, TallyData>>;
         proposals : Map.Map<GovernanceId, Map.Map<ProposalId, Proposal>>;
-        subscribers : Map.Map<Principal, [TallyData]>;
+        subscribers : Map.Map<Principal, List.List<TallyData>>;
 
         talliesIdByNeuron : Map.Map<GovernanceId, Map.Map<NeuronId, List.List<TallyId>>>;
         talliesById : Map.Map<TallyId, TallyData>;
-        subscribersByTally : Map.Map<TallyId, [Principal]>;
+        //subscribersByTally : Map.Map<TallyId, [Principal]>;
 
         var lastId : Nat;
     };
 
-    //multikey map?
-    //acl service
-    //separate tickrate for proposals and tallies
+    // manually call tracker update
     // Feed id based on hash calculated by neurons ids and topics to avoid duplication
     public class TallyService(tallyModel : TallyModel, logService: LT.LogService, governanceService : GS.GovernanceService, trackerService : TT.TrackerService) {
 
@@ -133,7 +131,7 @@ module {
             switch(await* processDeltaAndUpdateState(governanceId, proposalMap, settledProposals)){
                 case(#ok(delta)){
                     //send updates in batches to tallies with changes
-                    await* updateSubscribers(governanceId, delta);
+                    await* notifySubscribers(governanceId, delta);
                 };
                 case(_){};//TODO:log
             };
@@ -170,7 +168,7 @@ module {
         };
 
 
-        func updateSubscribers(governanceId : Text, delta : List.List<(NeuronId, List.List<ProposalId>)>) :  async* (){
+        func notifySubscribers(governanceId : Text, delta : List.List<(NeuronId, List.List<ProposalId>)>) :  async* (){
             let affectedTallies = Map.new<TallyId, List.List<Proposal>>();
             label l for((neuron, proposalList) in List.toIter(delta)){
                 let #ok(neuronTallies) = Result.fromOption(Map.get(tallyModel.talliesIdByNeuron, thash, governanceId), #err("not found"))
@@ -206,13 +204,13 @@ module {
 
                 for((sub, tallies) in Map.entries(tallyModel.subscribers)){
                     let tallyChunk = Buffer.Buffer<TallyTypes.TallyFeed>(100);
-                    for(tally in tallies.vals()) {
+                    for(tally in List.toIter(tallies)) {
                         if(Map.has(affectedTallies, nhash, tally.id)){
                             switch(Map.get(affectedTallies, nhash, tally.id)){
                                 case(?proposals){
                                     tallyChunk.add(processTally(tally, proposals));
                                     if(tallyChunk.size() >= 100) {
-                                        await* updateSubscriber(governanceId, Buffer.toArray(tallyChunk));
+                                        await* notifySubscriber(governanceId, Buffer.toArray(tallyChunk));
                                         tallyChunk.clear();
                                     }
                                 };
@@ -221,11 +219,10 @@ module {
                         };
                     };
                     if(tallyChunk.size() > 0) {
-                        await* updateSubscriber(governanceId, Buffer.toArray(tallyChunk));
+                        await* notifySubscriber(governanceId, Buffer.toArray(tallyChunk));
                     };
 
                 };
-
 
             };
         };
@@ -299,7 +296,7 @@ module {
             };
         };
 
-        func updateSubscriber(governanceId : Text, tallies : [TallyTypes.TallyFeed]) : async* () {
+        func notifySubscriber(governanceId : Text, tallies : [TallyTypes.TallyFeed]) : async* () {
             let sub : TallyTypes.Subscriber = actor (governanceId);
             await sub.tallyUpdate(tallies);
         };
@@ -322,11 +319,11 @@ module {
 
             switch(args.subscriber) {
                 case(?subscriber) {
-                    Map.set(tallyModel.subscribersByTally, nhash, tallyId, [subscriber]);
+                    //Map.set(tallyModel.subscribersByTally, nhash, tallyId, [subscriber]);
+                    let subTallies = Utils.getElseCreate(tallyModel.subscribers, phash, subscriber, List.nil());
+                    Map.set(tallyModel.subscribers, phash, subscriber, List.push(tally, subTallies));
                 };
-                case(_) {
-                    Map.set(tallyModel.subscribersByTally, nhash, tallyId, []);
-                };
+                case(_) {};
             };
 
             Map.set(tallyModel.talliesById, nhash, tallyId, tally);
