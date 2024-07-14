@@ -1,6 +1,6 @@
 import PT "../Proposal/ProposalTypes";
 import Map "mo:map/Map";
-import { nhash; thash;i32hash } "mo:map/Map";
+import { nhash; n64hash; thash; i32hash } "mo:map/Map";
 import Result "mo:base/Result";
 import Option "mo:base/Option";
 import Buffer "mo:base/Buffer";
@@ -11,6 +11,7 @@ import Time "mo:base/Time";
 import Order "mo:base/Order";
 import Debug "mo:base/Debug";
 import Int32 "mo:base/Int32";
+import Nat64 "mo:base/Nat64";
 import LinkedList "mo:linked-list";
 import Utils "../utils";
 import LT "../Log/LogTypes";
@@ -44,9 +45,9 @@ module {
                 activeProposalsSet = Map.new<PT.ProposalId, ()>();
                 proposalsById = Map.new<PT.ProposalId, LinkedList.Node<PT.Proposal>>();
 
-                var lastProposalId : ?Nat = null;
-                var lowestProposalId : ?Nat = null;
-                var lowestActiveProposalId : ?Nat = null;
+                var lastProposalId : ?PT.ProposalId = null;
+                var lowestProposalId : ?PT.ProposalId = null;
+                var lowestActiveProposalId : ?PT.ProposalId = null;
             });  
             #ok()
         };
@@ -151,7 +152,7 @@ module {
                         return #err(#InvalidTopic);
                     };
                     
-                    switch(Map.get(canister.proposalsById, nhash, after)){
+                    switch(Map.get(canister.proposalsById, n64hash, after)){
                         case (?node) {
                             var current = ?node;
                             var count = 0;
@@ -187,7 +188,7 @@ module {
 
         func addProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) {
             let node = LinkedList.Node<PT.Proposal>(proposal);
-            Map.set(governanceData.proposalsById, nhash, proposal.id, node);
+            Map.set(governanceData.proposalsById, n64hash, proposal.id, node);
             LinkedList.append_node(governanceData.proposals, node);
             // switch(Map.get(governanceData.proposalsByTopic, i32hash, proposal.topicId)){
             //     case(?v){
@@ -204,11 +205,11 @@ module {
             switch(proposal.status){
                 case(#Executed(v)){};
                 case(_){
-                    ignore Map.add(governanceData.activeProposalsSet, nhash, proposal.id, ());
+                    ignore Map.add(governanceData.activeProposalsSet, n64hash, proposal.id, ());
                 };
             };
 
-            if (proposal.id > Option.get(governanceData.lastProposalId, 0)){
+            if (proposal.id > Option.get(governanceData.lastProposalId, Nat64.fromNat(0))){
                 governanceData.lastProposalId := ?proposal.id;
             };
 
@@ -226,7 +227,7 @@ module {
         };
 
         func updateProposal(governanceData : TT.GovernanceData, proposal : PT.Proposal) : () {
-            switch(Map.get(governanceData.proposalsById, nhash, proposal.id)){
+            switch(Map.get(governanceData.proposalsById, n64hash, proposal.id)){
                 case (?p) {
                     p.data.status := proposal.status;
                     p.data.deadlineTimestampSeconds := proposal.deadlineTimestampSeconds;
@@ -239,7 +240,19 @@ module {
             //once the proposal is executed, remove it from active list and update the lowest active proposal id
             switch(proposal.status){
                 case(#Executed(e)){
-                    ignore Map.remove(governanceData.activeProposalsSet, nhash, proposal.id);
+                    ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
+
+                    var lowestId : ?PT.ProposalId = null;
+                    for (id in Map.keys(governanceData.proposalsById)) {
+                        //on first iter lowestId is null, so this will always be true
+                        if(id < Option.get(lowestId, id + 1)){
+                            lowestId := ?id;
+                        };
+                    };
+                    governanceData.lowestActiveProposalId := lowestId;
+                };
+                case(#Failed){
+                    ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
 
                     var lowestId : ?PT.ProposalId = null;
                     for (id in Map.keys(governanceData.proposalsById)) {
@@ -255,7 +268,7 @@ module {
         };
 
         public func deleteProposal(governanceData : TT.GovernanceData, id : PT.ProposalId) : Result.Result<(), Text> {
-            let #ok(p) = Utils.optToRes(Map.remove(governanceData.proposalsById, nhash, id))
+            let #ok(p) = Utils.optToRes(Map.remove(governanceData.proposalsById, n64hash, id))
             else {
                 return #err("Proposal id not found");
             };
@@ -289,7 +302,7 @@ module {
             let sortedProposals = Array.sort(_proposals, compareIds);
 
             label processDelta for (pa in Array.vals(sortedProposals)){
-                switch(Map.get(governanceData.proposalsById, nhash, pa.id)){
+                switch(Map.get(governanceData.proposalsById, n64hash, pa.id)){
                     case (?v) {
                         //existing proposal, check if state changed
                         if(isDifferentState(pa, v.data)){
@@ -309,7 +322,7 @@ module {
          };
 
         func isDifferentState(p1 : PT.Proposal, p2 : PT.Proposal) : Bool {
-            return p1.status != p2.status or p1.deadlineTimestampSeconds != p2.deadlineTimestampSeconds;
+            return p1.status != p2.status or p1.deadlineTimestampSeconds != p2.deadlineTimestampSeconds or p1.rewardStatus != p2.rewardStatus;
         };
 
         func compareIds(a : PT.Proposal, b : PT.Proposal) : Order.Order {
