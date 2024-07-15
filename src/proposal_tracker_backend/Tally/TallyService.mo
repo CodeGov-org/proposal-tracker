@@ -7,6 +7,7 @@ import Option "mo:base/Option";
 import Array "mo:base/Array";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
+import Timer "mo:base/Timer";
 import PT "../Proposal/ProposalTypes";
 import { nhash; thash; phash; n64hash; i32hash} "mo:map/Map";
 import GS "../Governance/GovernanceService";
@@ -72,21 +73,89 @@ module {
         ballots : Map.Map<NeuronId, NeuronVote>;
     };
 
+    public type UpdateState = {
+        #Running;
+        #Stopped;
+    };
+
     public type TallyModel = {
         neurons : Map.Map<GovernanceId, Map.Map<NeuronId, NeuronData>>;
         tallies : Map.Map<GovernanceId, Map.Map<TallyId, TallyData>>;
         proposals : Map.Map<GovernanceId, Map.Map<ProposalId, Proposal>>;
         subscribers : Map.Map<Principal, List.List<TallyData>>;
 
-        talliesByNeuron : Map.Map<GovernanceId, Map.Map<NeuronId, List.List<TallyData>>>; //TODO: init
+        talliesByNeuron : Map.Map<GovernanceId, Map.Map<NeuronId, List.List<TallyData>>>;
         talliesById : Map.Map<TallyId, TallyData>;
 
         var lastId : Nat;
+        var timerId :?Nat;
     };
 
-    // manually call tracker update
+    public func initTallyModel() : TallyModel {
+        {
+            neurons = Map.new<GovernanceId, Map.Map<NeuronId, NeuronData>>();
+            tallies = Map.new<GovernanceId, Map.Map<TallyId, TallyData>>();
+            proposals = Map.new<GovernanceId, Map.Map<ProposalId, Proposal>>();
+            subscribers = Map.new<Principal, List.List<TallyData>>();
+
+            talliesByNeuron = Map.new<GovernanceId, Map.Map<NeuronId, List.List<TallyData>>>();
+            talliesById = Map.new<TallyId, TallyData>();
+
+            var lastId = 0;
+            var timerId = null;
+        };
+    };
+
     // Feed id based on hash calculated by neurons ids and topics to avoid duplication
     public class TallyService(tallyModel : TallyModel, logService: LT.LogService, governanceService : GS.GovernanceService, trackerService : TT.TrackerService) {
+
+        var updateState : UpdateState = #Stopped;
+
+        public func initTimer<system>(_tickrateInSeconds : ?Nat) : async Result.Result<(), Text> {
+                    
+            let tickrate : Nat = Option.get(_tickrateInSeconds, 5 * 60); // 5 minutes
+            switch(tallyModel.timerId){
+                case(?t){ return #err("Timer already created")};
+                case(_){};
+            };
+
+            tallyModel.timerId := ?Timer.recurringTimer<system>(#seconds(tickrate), func() : async () {
+                await* fetchProposalsAndUpdate()
+            });
+
+            return #ok()
+        };
+
+        public func fetchProposalsAndUpdate() : async* (){
+            if(updateState == #Running){
+                logService.logWarn("Update already running", ?"[update]");
+                return;
+            };
+
+            updateState:= #Running;
+            await* trackerService.update(func(governanceId : Text, new : [PT.ProposalAPI], updated : [PT.ProposalAPI]) : async* () {
+                Debug.print("Tick");
+                Debug.print("new proposals: " # debug_show(new));
+                Debug.print("updated proposals: " # debug_show(updated));
+                Debug.print("governanceId: " # governanceId);
+
+                await* update(governanceId, new, updated);
+                updateState:= #Stopped;
+            });
+        };
+
+        public func cancelTimer() : async Result.Result<(), Text> {
+            switch(tallyModel.timerId){
+                case(?t){
+                    Timer.cancelTimer(t);
+                    tallyModel.timerId := null;
+                    return #ok();
+                };
+                case(_){
+                    return #err("No Timer to delete");
+                }
+            }
+        };
 
         //todo separate update to test and protect multiple instances
         public func init() : async Result.Result<(), Text> {

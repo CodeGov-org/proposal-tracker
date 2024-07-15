@@ -49,11 +49,10 @@ public type Vote = {
     tallyId : TallyId;
     ballots : [Ballot];
     governanceCanister : Text;
-    //tallyStatus : Vote;
-    //timestamp : Nat;
   };
 
   public type Subscriber = actor {
     tallyUpdate : shared ([TallyFeed]) -> async ();
-  }
+  };
+
 }
