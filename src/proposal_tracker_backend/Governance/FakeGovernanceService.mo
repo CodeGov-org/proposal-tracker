@@ -48,7 +48,7 @@ module{
         var proposals = List.nil<Proposal>();
         var neuronCount = 0;
         var lastProposalId : Nat64 = 0;
-        var lastNeuronId = 0;
+        var lastNeuronId : Nat64 = 0;
 
         public func listProposals(_ : Text, info :  NNSTypes.ListProposalInfo) : async* Result.Result<NNSTypes.ListProposalInfoResponse, Text>{
             let buf = Buffer.Buffer<NNSTypes.ProposalInfo>(50);
@@ -157,7 +157,7 @@ module{
             lastProposalId
         };
 
-        public func addNeuron() : Nat {
+        public func addNeuron() : Nat64 {
             lastNeuronId := lastNeuronId + 1;
             neuronCount := neuronCount + 1;
             let neuron : Neuron= {
@@ -178,7 +178,7 @@ module{
             lastNeuronId
         };
 
-        public func voteWithNeuronOnProposal(proposalId : Nat64, neuronId : Nat64, vote : NNSMappings.NNSVote) : async* Result.Result<(), Text>{
+        public func voteWithNeuronOnProposal(proposalId : Nat64, neuronId : Nat64, vote : NNSMappings.NNSVote) : Result.Result<(), Text>{
             let #ok(neuron) = Result.fromOption(getNeuronWithId(neuronId), "Neuron not found")
             else{
                 return #err("Neuron not found");
