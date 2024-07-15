@@ -17,6 +17,8 @@ import Fuzz "mo:fuzz";
 import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
+import Buffer "mo:base/Buffer";
+import Principal "mo:base/Principal";
 import LogService "./Log/LogService";
 import LT "./Log/LogTypes";
 import TallyService "./Tally/TallyService";
@@ -54,7 +56,38 @@ actor class ProposalTrackerBackend() = {
     }
   };
 
+   public func addTally(args : TallyService.AddTallyArgs) : async Result.Result<(), Text>{
+    #ok();
+   };
+
   // TEST ENDPOINTS
+
+  public func testApproveProposal() : async (){
+    let proposalId = governanceService.addProposal(13, #Open);
+    let neurons = Buffer.Buffer<Nat64>(10);
+    neurons.add(governanceService.addNeuron());
+    neurons.add(governanceService.addNeuron());
+    neurons.add(governanceService.addNeuron());
+    neurons.add(governanceService.addNeuron());
+
+    ignore await* tallyService.addTally({
+      governanceId = "test";
+      topics = [13];
+      neurons = Buffer.toArray(neurons);
+      subscriber =?Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
+    });
+
+
+    await* tallyService.fetchProposalsAndUpdate();
+
+
+    for(neuron in neurons.vals()){
+      ignore governanceService.voteWithNeuronOnProposal(neuron, proposalId, #Yes);
+    };
+
+    await* tallyService.fetchProposalsAndUpdate();
+
+  };
 
   
 
