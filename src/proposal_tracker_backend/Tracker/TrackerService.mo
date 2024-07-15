@@ -22,13 +22,11 @@ import LinkedList "mo:linked-list";
 import LT "../Log/LogTypes";
 import PS "../Proposal/ProposalService";
 module {
-
-    //TODO: get active proposals?
     public class TrackerService(repository: TR.TrackerRepository, governanceService : GS.GovernanceService, logService : LT.LogService, args : TT.TrackerServiceArgs) {
-        let DEFAULT_TICKRATE : Nat = 10; // 10 secs 
+        let DEFAULT_TICKRATE : Nat = 5 * 60 ; //5 mins 
         let proposalService = PS.ProposalService(governanceService, logService);
 
-        public func update(cb : TT.TrackerServiceJob) : async () {
+        public func update(cb : TT.TrackerServiceJob) : async* () {
             label timerUpdate for ((canisterId, governanceData) in Map.entries(repository.getAllGovernance())) {
                 //if lowestActiveProposalId is null, call pending proposal method and sync up until lowest active proposal id
                 if (Option.isNull(governanceData.lowestActiveProposalId)){
@@ -96,7 +94,7 @@ module {
             };
 
             let timerId =  ?Timer.recurringTimer<system>(#seconds(tickrate), func() : async () {
-                await update(job);
+                await* update(job);
             });
             ignore repository.setTimerId(timerId);
 

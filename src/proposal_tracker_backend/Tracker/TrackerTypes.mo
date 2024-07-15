@@ -80,7 +80,7 @@ module {
     public type TrackerServiceJob = (governanceId : Text, newProposals : [PT.ProposalAPI], updatedProposals : [PT.ProposalAPI]) -> async* ();
 
     public type TrackerService = {
-        update : (cb : TrackerServiceJob) -> async ();
+        update : (cb : TrackerServiceJob) -> async* ();
         initTimer : (tickrate : ?Nat, job : TrackerServiceJob) -> async* Result.Result<(), Text>;
         cancelTimer : () -> Result.Result<(), Text>;
         updateTimer : (newTickrate : Nat, job : TrackerServiceJob) -> async Result.Result<(), Text>;
