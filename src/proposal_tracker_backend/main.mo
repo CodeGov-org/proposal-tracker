@@ -9,6 +9,7 @@ import Result "mo:base/Result";
 import Timer "mo:base/Timer";
 import G "./Governance/GovernanceTypes";
 import GS "./Governance/GovernanceService";
+import FakeGovernance "./Governance/FakeGovernanceService";
 import PT "./Proposal/ProposalTypes";
 import TT "./Tracker/TrackerTypes";
 import PM "./Proposal/ProposalMappings";
@@ -17,19 +18,24 @@ import Nat64 "mo:base/Nat64";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
 import LogService "./Log/LogService";
-import LT "./Log/LogTypes"
-actor class ProposalTrackerBackend() = {
+import LT "./Log/LogTypes";
+import TallyService "./Tally/TallyService";
 
-  //TODO: set timer after upgrade
+actor class ProposalTrackerBackend() = {
 
   stable let logs = LogService.initLogModel();
   let logService = LogService.LogServiceImpl(logs, 100, true);
   stable let trackerData = TR.init();
   let trackerRepository = TR.TrackerRepository(trackerData, logService);
-  let governanceService = GS.GovernanceService();
+  //TEST ONLY
+  let governanceService = FakeGovernance.FakeGovernanceService();
+  //let governanceService = GS.GovernanceService();
   let trackerService = TS.TrackerService(trackerRepository, governanceService, logService, {
     cleanupStrategy = #DeleteAfterTime(#Days(7));
   });
+
+  stable let tallyModel = TallyService.initTallyModel();
+  let tallyService = TallyService.TallyService(tallyModel, logService, governanceService, trackerService);
 
   // public func start() : async Result.Result<(), Text> {
   //   await* trackerService.initTimer(?300, func(governanceId, new, updated) : () {
@@ -40,12 +46,24 @@ actor class ProposalTrackerBackend() = {
   //   });
   // };
 
-  public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
-    trackerService.getProposals(canisterId, after, topics);
+  system func postupgrade() {
+    if(Option.isSome(tallyModel.timerId)){
+        tallyModel.timerId := ?Timer.recurringTimer<system>(#seconds(5* 60), func() : async () {
+        await* tallyService.fetchProposalsAndUpdate()
+      });
+    }
   };
 
-  public func testAddService() : async Result.Result<(), Text> {
-    await* trackerService.addGovernance("rrkah-fqaaa-aaaaa-aaaaq-cai", #All);
+  // TEST ENDPOINTS
+
+  
+
+  public func testRunUpdate() : async (){
+   await* tallyService.fetchProposalsAndUpdate()
+  };
+
+  public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
+    trackerService.getProposals(canisterId, after, topics);
   };
 
   public func testSetLowestActiveId(canisterId: Text, id : ?Nat64) : async Result.Result<(), Text> {
@@ -74,9 +92,8 @@ actor class ProposalTrackerBackend() = {
     }
   };
 
-
-  // public func testRunUpdate() : async (){
-  //   await trackerService.update(func (i, j, k) : (){});
+  // public func testAddService() : async Result.Result<(), Text> {
+  //   await* trackerService.addGovernance("rrkah-fqaaa-aaaaa-aaaaq-cai", #All);
   // };
 
   //////////////////////////
