@@ -154,13 +154,15 @@ module{
 
             };
 
+            proposals := List.push(proposal, proposals);
+
             lastProposalId
         };
 
         public func addNeuron() : Nat64 {
             lastNeuronId := lastNeuronId + 1;
             neuronCount := neuronCount + 1;
-            let neuron : Neuron= {
+            let neuron : Neuron = {
                 id = ?{id = lastNeuronId};
                 age_seconds = 0;
                 created_timestamp_seconds = 1609459200;
@@ -174,6 +176,8 @@ module{
                 state = 0;
                 voting_power = 0;
             };
+
+            neurons := List.push((lastNeuronId, neuron), neurons);
 
             lastNeuronId
         };
