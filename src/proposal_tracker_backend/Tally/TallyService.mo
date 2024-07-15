@@ -20,11 +20,6 @@ import GM "../Governance/GovernanceMappings";
 
 module {
 
-    type ProposalType = {
-        #NNS;
-        #SNS : Principal;
-    };
-
     public type TallyFeed = {
         tallyId : Text;
         proposalId : Nat;
@@ -73,7 +68,7 @@ module {
         ballots : Map.Map<NeuronId, NeuronVote>;
     };
 
-    public type UpdateState = {
+    type UpdateState = {
         #Running;
         #Stopped;
     };
@@ -134,14 +129,14 @@ module {
 
             updateState:= #Running;
             await* trackerService.update(func(governanceId : Text, new : [PT.ProposalAPI], updated : [PT.ProposalAPI]) : async* () {
-                Debug.print("Tick");
-                Debug.print("new proposals: " # debug_show(new));
-                Debug.print("updated proposals: " # debug_show(updated));
-                Debug.print("governanceId: " # governanceId);
+                // Debug.print("Tick");
+                // Debug.print("new proposals: " # debug_show(new));
+                // Debug.print("updated proposals: " # debug_show(updated));
+                // Debug.print("governanceId: " # governanceId);
 
                 await* update(governanceId, new, updated);
-                updateState:= #Stopped;
             });
+            updateState:= #Stopped;
         };
 
         public func cancelTimer() : async Result.Result<(), Text> {
@@ -157,15 +152,14 @@ module {
             }
         };
 
-        //todo separate update to test and protect multiple instances
         public func init() : async Result.Result<(), Text> {
             await* trackerService.initTimer(?300, func(governanceId : Text, new : [PT.ProposalAPI], updated : [PT.ProposalAPI]) : async* () {
-                Debug.print("Tick");
-                Debug.print("new proposals: " # debug_show(new));
-                Debug.print("updated proposals: " # debug_show(updated));
-                Debug.print("governanceId: " # governanceId);
+                // Debug.print("Tick");
+                // Debug.print("new proposals: " # debug_show(new));
+                // Debug.print("updated proposals: " # debug_show(updated));
+                // Debug.print("governanceId: " # governanceId);
 
-                await* update(governanceId, new, updated);
+                // await* update(governanceId, new, updated);
             });
         };
 
