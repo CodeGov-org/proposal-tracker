@@ -4,6 +4,7 @@ import Result "mo:base/Result";
 import Buffer "mo:base/Buffer";
 import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
+import Time "mo:base/Time";
 import NNSMappings "../External_Canisters/NNS/NNSMappings";
 
 module{
@@ -154,7 +155,7 @@ module{
 
             };
 
-            proposals := List.push(proposal, proposals);
+            proposals := List.append(proposals, List.make<Proposal>(proposal));
 
             lastProposalId
         };

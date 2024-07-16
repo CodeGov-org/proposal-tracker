@@ -71,7 +71,7 @@ actor class ProposalTrackerBackend() = {
     neurons.add(governanceService.addNeuron());
 
     ignore await* tallyService.addTally({
-      governanceId = "test";
+      governanceId = "7g2oq-raaaa-aaaap-qb7sq-cai";
       topics = [13];
       neurons = Buffer.toArray(neurons);
       subscriber =?Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
@@ -89,11 +89,20 @@ actor class ProposalTrackerBackend() = {
 
   };
 
-  
+
+  public func testGeneratePendingProposal() : async Nat64{
+     governanceService.addProposal(13, #Open);
+  };
+
 
   public func testRunUpdate() : async (){
    await* tallyService.fetchProposalsAndUpdate()
   };
+
+  public func testGetPendingProposals() : async Result.Result<[G.ProposalInfo], Text>{
+   await* governanceService.getPendingProposals("dsad");
+  };
+
 
   public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
     trackerService.getProposals(canisterId, after, topics);
@@ -113,7 +122,7 @@ actor class ProposalTrackerBackend() = {
     
   };
 
-  public func testGetLowestActiveId(canisterId: Text,) : async Result.Result<?Nat64, Text>{
+  public func testGetLowestActiveId(canisterId: Text) : async Result.Result<?Nat64, Text>{
     let tc = Map.get(trackerData.trackedCanisters, thash, canisterId);
     switch(tc) {
       case(?e){

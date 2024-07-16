@@ -116,6 +116,7 @@ module {
         };
 
         //TODO: handle manage neuron proposals causing blank spots in the list
+        // TODO: fix all variant
         // if no topics are provided then all proposals are returned
         public func getProposals(canisterId: Text, _after : ?PT.ProposalId, topics : TT.TopicStrategy, limit : ?Nat) : Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
             switch (Map.get(trackerModel.trackedCanisters, thash, canisterId)) {
@@ -209,14 +210,23 @@ module {
                 };
             };
 
-            if (proposal.id > Option.get(governanceData.lastProposalId, Nat64.fromNat(0))){
-                governanceData.lastProposalId := ?proposal.id;
+
+            switch(governanceData.lastProposalId){
+                case(?lastProposalId){
+                    if (proposal.id > lastProposalId){
+                        governanceData.lastProposalId := ?proposal.id;
+                    };
+                };
+                case(_){
+                    governanceData.lastProposalId := ?proposal.id;
+                };
+
             };
 
             //init lowestProposalId when it is null on first run or update it in case we are syncing backwards
             switch(governanceData.lowestProposalId){
-                case(?v){
-                    if(v < proposal.id){
+                case(?lowestId){
+                    if(proposal.id < lowestId ){
                         governanceData.lowestProposalId := ?proposal.id;
                     };
                 };
@@ -281,6 +291,7 @@ module {
             // };
             // LinkedList.remove_node(t, LinkedList.Node<PT.Proposal>(p));
 
+            //TODO: it assumes list is ordered but it isnt guaranteed
             switch((governanceData.proposals._head, governanceData.proposals._tail)){
                 case((?h,?t)) {
                     governanceData.lowestProposalId := ?h.data.id;
