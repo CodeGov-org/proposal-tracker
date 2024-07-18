@@ -31,23 +31,14 @@ actor class ProposalTrackerBackend() = {
   stable let trackerData = TR.init();
   let trackerRepository = TR.TrackerRepository(trackerData, logService);
   //TEST ONLY
-  let governanceService = FakeGovernance.FakeGovernanceService(logService);
-  //let governanceService = GS.GovernanceService();
-  let trackerService = TS.TrackerService(trackerRepository, governanceService, logService, {
+  let fakeGovernanceService = FakeGovernance.FakeGovernanceService(logService);
+  let governanceService = GS.GovernanceService();
+  let trackerService = TS.TrackerService(trackerRepository, fakeGovernanceService, logService, {
     cleanupStrategy = #DeleteAfterTime(#Days(7));
   });
 
   stable let tallyModel = TallyService.initTallyModel();
   let tallyService = TallyService.TallyService(tallyModel, logService, governanceService, trackerService);
-
-  // public func start() : async Result.Result<(), Text> {
-  //   await* trackerService.initTimer(?300, func(governanceId, new, updated) : () {
-  //     Debug.print("Tick");
-  //     Debug.print("new proposals: " # debug_show(new));
-  //     Debug.print("updated proposals: " # debug_show(updated));
-  //     Debug.print("governanceId: " # governanceId);
-  //   });
-  // };
 
   system func postupgrade() {
     if(Option.isSome(tallyModel.timerId)){
@@ -64,12 +55,12 @@ actor class ProposalTrackerBackend() = {
   // TEST ENDPOINTS
 
   public func testApproveProposal() : async (){
-    let proposalId = governanceService.addProposal(13, #Open);
+    let proposalId = fakeGovernanceService.addProposal(13, #Open);
     let neurons = Buffer.Buffer<Nat64>(10);
-    neurons.add(governanceService.addNeuron());
-    neurons.add(governanceService.addNeuron());
-    neurons.add(governanceService.addNeuron());
-    neurons.add(governanceService.addNeuron());
+    neurons.add(fakeGovernanceService.addNeuron());
+    neurons.add(fakeGovernanceService.addNeuron());
+    neurons.add(fakeGovernanceService.addNeuron());
+    neurons.add(fakeGovernanceService.addNeuron());
 
     ignore await* tallyService.addTally({
       governanceId = "7g2oq-raaaa-aaaap-qb7sq-cai";
@@ -84,7 +75,7 @@ actor class ProposalTrackerBackend() = {
 
 
     for(neuron in neurons.vals()){
-      ignore governanceService.voteWithNeuronOnProposal(neuron, proposalId, #Yes);
+      ignore fakeGovernanceService.voteWithNeuronOnProposal(neuron, proposalId, #Yes);
     };
 
     await* tallyService.fetchProposalsAndUpdate();
@@ -93,10 +84,10 @@ actor class ProposalTrackerBackend() = {
 
   public func testAddMockTally() : async Result.Result<TallyTypes.TallyId, Text>{
     let neurons = Buffer.Buffer<Nat64>(10);
-    neurons.add(governanceService.addNeuron());
-    neurons.add(governanceService.addNeuron());
-    neurons.add(governanceService.addNeuron());
-    neurons.add(governanceService.addNeuron());
+    neurons.add(fakeGovernanceService.addNeuron());
+    neurons.add(fakeGovernanceService.addNeuron());
+    neurons.add(fakeGovernanceService.addNeuron());
+    neurons.add(fakeGovernanceService.addNeuron());
 
     await* tallyService.addTally({
       governanceId = "7g2oq-raaaa-aaaap-qb7sq-cai";
@@ -112,7 +103,7 @@ actor class ProposalTrackerBackend() = {
     switch(t){
       case(?tally){
         for(neuronId in Map.keys(tally.neurons)){
-          ignore governanceService.voteWithNeuronOnProposal(neuronId, proposalId, vote);
+          ignore fakeGovernanceService.voteWithNeuronOnProposal(neuronId, proposalId, vote);
         };
         #ok()
       };
@@ -127,29 +118,51 @@ actor class ProposalTrackerBackend() = {
   };
 
   public func testTerminateProposal(proposalId : Nat64) : async Result.Result<(), Text>{
-    governanceService.terminateProposal(proposalId);
+    fakeGovernanceService.terminateProposal(proposalId);
   };
 
   public func testFetchProposalsAndUpdate() : async (){
     await* tallyService.fetchProposalsAndUpdate();
   };
 
-  public func testGeneratePendingProposal() : async Nat64{
-     governanceService.addProposal(13, #Open);
+  public func testAddCodegovTally() : async Result.Result<TallyTypes.TallyId, Text>{
+    let codegovNeurons : [TallyTypes.NeuronId] = [118900764328536345, 12979846186887799326, 2692859404205778191, 16405079610149095765, 16459595263909468577, 6542438359604605534, 14998600334911702241, 739503821726316206];
+
+    for(neuron in codegovNeurons.vals()){
+      ignore fakeGovernanceService.addNeuronWithId(neuron);
+    }; 
+
+    await* tallyService.addTally({
+      governanceId = "rrkah-fqaaa-aaaaa-aaaaq-cai";
+      alias = ?"Codegov";
+      topics = [1,2,3,4,5,6,7,8,9,10,11,12,13];
+      neurons = codegovNeurons;
+      subscriber = Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
+    });
+  };
+
+  public func testAddPendingProposal(id : ?Nat64) : async Nat64{
+    switch(id){
+      case(?unwrapId){
+        fakeGovernanceService.addProposalWithId(unwrapId, 13, #Open);
+      };
+      case(_){
+        fakeGovernanceService.addProposal(13, #Open);
+      };
+    };
   };
 
   public func testGetPendingProposals() : async Result.Result<[G.ProposalInfo], Text>{
-   await* governanceService.getPendingProposals("dsad");
+   await* fakeGovernanceService.getPendingProposals("asa");
   };
 
   //// TRACKER SERVICE TESTING ENDPOINTS
-
   public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
     trackerService.getProposals(canisterId, after, topics);
   };
 
   public func testGetProposal(id : Nat64) : async Bool{
-     switch(governanceService.getProposalWithId(id)){
+     switch(fakeGovernanceService.getProposalWithId(id)){
       case(?e){
         true
       };
