@@ -53,6 +53,13 @@ public type Vote = {
     governanceCanister : Text;
   };
 
+  public type TallyInfo = {
+    tallyId : TallyId;
+    alias : ?Text;
+    topics : [Int32];
+    neurons : [NeuronId];
+  };
+
   public type AddTallyArgs = {
       governanceId : Text;
       alias : ?Text;

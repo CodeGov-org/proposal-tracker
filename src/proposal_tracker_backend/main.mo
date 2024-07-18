@@ -38,7 +38,7 @@ actor class ProposalTrackerBackend() = {
   });
 
   stable let tallyModel = TallyService.initTallyModel();
-  let tallyService = TallyService.TallyService(tallyModel, logService, governanceService, trackerService);
+  let tallyService = TallyService.TallyService(tallyModel, logService, fakeGovernanceService, trackerService);
 
   system func postupgrade() {
     if(Option.isSome(tallyModel.timerId)){
@@ -51,6 +51,32 @@ actor class ProposalTrackerBackend() = {
    public func addTally(args : TallyService.AddTallyArgs) : async Result.Result<TallyTypes.TallyId, Text>{
     await* tallyService.addTally(args)
    };
+
+   public func getTally(tallyId : TallyTypes.TallyId) : async Result.Result<TallyTypes.TallyInfo, Text> {
+       switch(tallyService.getTally(tallyId)){
+        case(?t){
+          let neuronBuffer = Buffer.Buffer<Nat64>(0);
+          let topicBufer = Buffer.Buffer<Int32>(0);
+          for(topic in Map.keys(t.topics)){
+            topicBufer.add(topic);
+          };
+
+          for(neuron in Map.keys(t.neurons)){
+            neuronBuffer.add(neuron);
+          };
+
+          #ok({
+              tallyId = t.id;
+              alias = t.alias;
+              topics = Buffer.toArray(topicBufer);
+              neurons= Buffer.toArray(neuronBuffer);
+          })
+        };
+        case(_){
+          #err("Tally not found")
+        };
+       }
+    };
 
   // TEST ENDPOINTS
 
@@ -154,6 +180,17 @@ actor class ProposalTrackerBackend() = {
 
   public func testGetPendingProposals() : async Result.Result<[G.ProposalInfo], Text>{
    await* fakeGovernanceService.getPendingProposals("asa");
+  };
+
+  public func getNeuronWithId(id : TallyTypes.NeuronId) : async Result.Result<Nat64, Text>{
+    switch(fakeGovernanceService.getNeuronWithId(id)){
+      case(?neuron){
+        #ok(neuron.0)
+      };
+      case(_){
+        #err("Neuron not found")
+      };
+    };
   };
 
   //// TRACKER SERVICE TESTING ENDPOINTS

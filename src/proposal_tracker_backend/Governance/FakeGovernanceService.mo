@@ -129,22 +129,24 @@ module{
             });
         };
 
-        public func addNeuronWithId(id : Nat64) : Nat64 {
+        public func addNeuronWithId(neuronId : Nat64) : Nat64 {
             if(Option.isSome(List.find(neurons, func (n : (Nat64, Neuron)) : Bool {
-                n.0 == id
-                }))){
-                return id
+                //logService.logInfo("neuron already exists", null);
+                n.0 == neuronId
+            })))
+            {
+                return neuronId
             };
 
-            if(id > lastNeuronId){
-                lastNeuronId := id;
+            if(neuronId > lastNeuronId){
+                lastNeuronId := neuronId;
             } else {
                 lastNeuronId := lastNeuronId + 1;
             };
 
             neuronCount := neuronCount + 1;
             let neuron : Neuron = {
-                id = ?{id = id};
+                id = ?{id = neuronId};
                 age_seconds = 0;
                 created_timestamp_seconds = 1609459200;
                 dissolve_delay_seconds = 0;
@@ -158,9 +160,9 @@ module{
                 voting_power = 0;
             };
 
-            neurons := List.push((lastNeuronId, neuron), neurons);
+            neurons := List.push((neuronId, neuron), neurons);
 
-            lastNeuronId
+            neuronId
         };
 
         public func addProposalWithId(id : Nat64, topicId : Int32, status : NNSMappings.ProposalStatus) : Nat64 {
@@ -222,7 +224,7 @@ module{
         public func voteWithNeuronOnProposal(neuronId : Nat64, proposalId : Nat64, vote : NNSMappings.NNSVote) : Result.Result<(), Text>{
             let #ok(neuron) = Result.fromOption(getNeuronWithId(neuronId), "Neuron not found")
             else{
-                logService.logError("Neuron not found", ?"[voteWithNeuronOnProposal]");
+                logService.logError("Neuron not found: "  #  Nat64.toText(neuronId), ?"[voteWithNeuronOnProposal]");
                 return #err("Neuron not found");
             };
 
@@ -335,7 +337,7 @@ module{
             return null;
         };
 
-        func getNeuronWithId(neuronId : Nat64) : ?(Nat64, Neuron){
+        public func getNeuronWithId(neuronId : Nat64) : ?(Nat64, Neuron){
             for(neuron in List.toIter(neurons)){
                 if(neuron.0 == neuronId){
                     return ?neuron;
