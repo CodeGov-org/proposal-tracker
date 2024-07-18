@@ -9,6 +9,7 @@ import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
 import Timer "mo:base/Timer";
 import Time "mo:base/Time";
+import Principal "mo:base/Principal";
 import PT "../Proposal/ProposalTypes";
 import { nhash; thash; phash; n64hash; i32hash} "mo:map/Map";
 import GS "../Governance/GovernanceService";
@@ -246,7 +247,9 @@ module {
                             Map.set(proposalMap, n64hash, proposal.id, {p with isSettled = true; settledTimestamp = ?Time.now()});
                             settledProposals := List.push(p, settledProposals);
                         };
-                        case(_){};// TODO: broken invariant log
+                        case(_){
+                            logService.logError("Error getting from proposalMap: " # governanceId, ?"[update]");
+                        };
                     }
                 }
             };
@@ -255,9 +258,12 @@ module {
             switch(await* fetchBallots(governanceId, proposalMap, settledProposals)){
                 case(#ok(delta)){
                     //send updates in batches to tallies with changes
+                    //logService.logInfo("Notifying subs", ?"[update]");
                     await* notifySubscribers(governanceId, delta);
                 };
-                case(#err(e)){};//TODO:log
+                case(#err(e)){
+                    logService.logError("Error fetching ballots for governance: " # governanceId # " error: " # e, ?"[update]");
+                };
             };
 
             //move settled proposals to separate list
@@ -269,9 +275,7 @@ module {
 
         
         func fetchBallots(governanceId : Text, proposals : Map.Map<ProposalId, Proposal>, settledProposals : List.List<Proposal>) : async* Result.Result<List.List<(NeuronId, List.List<ProposalId>)>, Text> {
-
             var delta = List.nil<(NeuronId, List.List<ProposalId>)>();
-
 
             //for every governance canister, get the list of neurons, then chunk them and fetch new ballots
             switch(Map.get(tallyModel.neurons, thash, governanceId)){
@@ -319,13 +323,13 @@ module {
 
                 let #ok(pId) = Result.fromOption(ballot.proposal_id, "proposal id not found")
                 else{
-                    logService.logError("proposal id not found", ?"[getProposalDeltaAndUpdateState]");
+                    logService.logError("proposal id not found in ballot", ?"[getProposalDeltaAndUpdateState]");
                     continue l;
                 };
 
                 let #ok(proposal) = Result.fromOption(Map.get(proposals, n64hash, pId.id), "proposal not found")
                 else {
-                     logService.logError("proposal not found", ?"[getProposalDeltaAndUpdateState]");
+                    //logService.logError("proposal not found", ?"[getProposalDeltaAndUpdateState]"); //TODO: reenable
                     continue l;
                 };
 
@@ -347,7 +351,7 @@ module {
                                 };
                             };
                             case(#err(e)){
-
+                                logService.logError("Failed to map vote for proposal: " # Nat64.toText(proposal.id) # "for neuron: " # Nat64.toText(neuronId) # " error " # e, ?"[getProposalDeltaAndUpdateState]");
                             };
                         };
                     };
@@ -359,7 +363,9 @@ module {
                                 Map.set(proposal.ballots, n64hash, neuronId, v);
                                 proposalDelta := List.push(proposal.id, proposalDelta);
                              };
-                             case(#err(e)){};
+                             case(#err(e)){
+                                logService.logError("err Failed to map vote for proposal: " # Nat64.toText(proposal.id) # "for neuron: " # Nat64.toText(neuronId) # " error " # e, ?"[getProposalDeltaAndUpdateState]");
+                             };
                         }
                     };
                 };
@@ -511,8 +517,8 @@ module {
 
         func notifySubscribers(governanceId : Text, delta : List.List<(NeuronId, List.List<ProposalId>)>) :  async* (){
             let affectedTallies = processAffectedTallies(governanceId, delta);
-            for((sub, tallies) in Map.entries(tallyModel.subscribers)){
-                await* chunkedSend(governanceId, tallies, affectedTallies, 100);
+            for((subId, tallies) in Map.entries(tallyModel.subscribers)){
+                await* chunkedSend(Principal.toText(subId), tallies, affectedTallies, 100);
             };
         };
 
