@@ -248,6 +248,8 @@ module{
             #ok()
         };
 
+
+        //to be used to simulate execution or reject if not enough votes have been cast
         public func terminateProposal(proposalId : Nat64) : Result.Result<(), Text>{
             let #ok(proposal) = Result.fromOption(getProposalWithId(proposalId), "")
             else{
@@ -316,7 +318,7 @@ module{
             switch(proposal){
                 case(?proposal){
                     proposal.status := NNSMappings.mapStatusToInt(newState);
-                    if(newState == #Accepted or newState == #Rejected){
+                    if(newState == #Accepted or newState == #Rejected or newState == #Executed){
                         proposal.reward_status := NNSMappings.mapRewardStatusToInt(#ReadyToSettle);
                     };
                 };
