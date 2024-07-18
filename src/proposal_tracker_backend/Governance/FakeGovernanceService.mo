@@ -5,6 +5,7 @@ import Buffer "mo:base/Buffer";
 import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
 import Time "mo:base/Time";
+import Option "mo:base/Option";
 import NNSMappings "../External_Canisters/NNS/NNSMappings";
 import LogTypes "../Log/LogTypes";
 
@@ -128,10 +129,57 @@ module{
             });
         };
 
-        public func addProposal(topicId : Int32, status : NNSMappings.ProposalStatus) : Nat64 {
-            lastProposalId := lastProposalId + 1;
+        public func addNeuronWithId(id : Nat64) : Nat64 {
+            if(Option.isSome(List.find(neurons, func (n : (Nat64, Neuron)) : Bool {
+                n.0 == id
+                }))){
+                return id
+            };
+
+            if(id > lastNeuronId){
+                lastNeuronId := id;
+            } else {
+                lastNeuronId := lastNeuronId + 1;
+            };
+
+            neuronCount := neuronCount + 1;
+            let neuron : Neuron = {
+                id = ?{id = id};
+                age_seconds = 0;
+                created_timestamp_seconds = 1609459200;
+                dissolve_delay_seconds = 0;
+                known_neuron_data = null;
+                joined_community_fund_timestamp_seconds = null;
+                neuron_type = null;
+                var recent_ballots = [];
+                retrieved_at_timestamp_seconds = 1609459200;
+                stake_e8s = 0;
+                state = 0;
+                voting_power = 0;
+            };
+
+            neurons := List.push((lastNeuronId, neuron), neurons);
+
+            lastNeuronId
+        };
+
+        func addProposalWithId(id : Nat64, topicId : Int32, status : NNSMappings.ProposalStatus) : Nat64 {
+            if(Option.isSome(List.find(proposals, func (p : Proposal) : Bool {
+                isNeuronIdEqual(p.id, id)
+                })
+            )){
+                return id
+            };
+
+            if(id > lastProposalId){
+                lastProposalId := id;
+            } else {
+                lastProposalId := lastProposalId + 1;
+            };
+
+            
             let proposal : Proposal = {
-                id = ?{id = lastProposalId};
+                id = ?{id = id};
                 topic = topicId;
                 var status = NNSMappings.mapStatusToInt(status);
                 failure_reason = null;
@@ -159,29 +207,16 @@ module{
             proposals := List.append(proposals, List.make<Proposal>(proposal));
 
             lastProposalId
+
+
+        };
+
+        public func addProposal(topicId : Int32, status : NNSMappings.ProposalStatus) : Nat64 {
+            addProposalWithId(lastProposalId + 1, topicId, status)
         };
 
         public func addNeuron() : Nat64 {
-            lastNeuronId := lastNeuronId + 1;
-            neuronCount := neuronCount + 1;
-            let neuron : Neuron = {
-                id = ?{id = lastNeuronId};
-                age_seconds = 0;
-                created_timestamp_seconds = 1609459200;
-                dissolve_delay_seconds = 0;
-                known_neuron_data = null;
-                joined_community_fund_timestamp_seconds = null;
-                neuron_type = null;
-                var recent_ballots = [];
-                retrieved_at_timestamp_seconds = 1609459200;
-                stake_e8s = 0;
-                state = 0;
-                voting_power = 0;
-            };
-
-            neurons := List.push((lastNeuronId, neuron), neurons);
-
-            lastNeuronId
+            addNeuronWithId(lastNeuronId + 1)
         };
 
         public func voteWithNeuronOnProposal(neuronId : Nat64, proposalId : Nat64, vote : NNSMappings.NNSVote) : Result.Result<(), Text>{
