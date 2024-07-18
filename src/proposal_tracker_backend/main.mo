@@ -57,7 +57,7 @@ actor class ProposalTrackerBackend() = {
   };
 
    public func addTally(args : TallyService.AddTallyArgs) : async Result.Result<(), Text>{
-    #ok();
+    await* tallyService.addTally(args);
    };
 
   // TEST ENDPOINTS
