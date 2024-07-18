@@ -128,9 +128,13 @@ module {
             };
 
             updateState:= #Running;
-            await* trackerService.update(func(governanceId : Text, new : [PT.ProposalAPI], updated : [PT.ProposalAPI]) : async* () {
-                await* update(governanceId, new, updated);
-            });
+            try{
+                await* trackerService.update(func(governanceId : Text, new : [PT.ProposalAPI], updated : [PT.ProposalAPI]) : async* () {
+                    await* update(governanceId, new, updated);
+                });
+            } catch(e){
+                updateState:= #Stopped;
+            };
             updateState:= #Stopped;
         };
 
