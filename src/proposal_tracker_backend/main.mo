@@ -22,6 +22,7 @@ import Principal "mo:base/Principal";
 import LogService "./Log/LogService";
 import LT "./Log/LogTypes";
 import TallyService "./Tally/TallyService";
+import TallyTypes "./Tally/TallyTypes";
 
 actor class ProposalTrackerBackend() = {
 
@@ -56,8 +57,8 @@ actor class ProposalTrackerBackend() = {
     }
   };
 
-   public func addTally(args : TallyService.AddTallyArgs) : async Result.Result<(), Text>{
-    await* tallyService.addTally(args);
+   public func addTally(args : TallyService.AddTallyArgs) : async Result.Result<TallyTypes.TallyId, Text>{
+    await* tallyService.addTally(args)
    };
 
   // TEST ENDPOINTS
@@ -90,9 +91,61 @@ actor class ProposalTrackerBackend() = {
 
   };
 
+  public func testAddMockTally() : async Result.Result<TallyTypes.TallyId, Text>{
+    let neurons = Buffer.Buffer<Nat64>(10);
+    neurons.add(governanceService.addNeuron());
+    neurons.add(governanceService.addNeuron());
+    neurons.add(governanceService.addNeuron());
+    neurons.add(governanceService.addNeuron());
+
+    await* tallyService.addTally({
+      governanceId = "7g2oq-raaaa-aaaap-qb7sq-cai";
+      alias = ?"Test Tally";
+      topics = [13];
+      neurons = Buffer.toArray(neurons);
+      subscriber = Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
+    });
+  };
+
+  public func testVoteWithTallyOnProposal(tallyId : Text, proposalId : Nat64, vote : {#No; #Unspecified; #Yes}) : async Result.Result<(), Text>{
+    let t = tallyService.getTally(tallyId);
+    switch(t){
+      case(?tally){
+        for(neuronId in Map.keys(tally.neurons)){
+          ignore governanceService.voteWithNeuronOnProposal(neuronId, proposalId, vote);
+        };
+        #ok()
+      };
+      case(_){
+        #err("Tally not found")
+      };
+    };
+  };
+
+  public func testRunUpdate() : async (){
+   await* tallyService.fetchProposalsAndUpdate()
+  };
+
+  public func testTerminateProposal(proposalId : Nat64) : async Result.Result<(), Text>{
+    governanceService.terminateProposal(proposalId);
+  };
+
+  public func testFetchProposalsAndUpdate() : async (){
+    await* tallyService.fetchProposalsAndUpdate();
+  };
 
   public func testGeneratePendingProposal() : async Nat64{
      governanceService.addProposal(13, #Open);
+  };
+
+  public func testGetPendingProposals() : async Result.Result<[G.ProposalInfo], Text>{
+   await* governanceService.getPendingProposals("dsad");
+  };
+
+  //// TRACKER SERVICE TESTING ENDPOINTS
+
+  public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
+    trackerService.getProposals(canisterId, after, topics);
   };
 
   public func testGetProposal(id : Nat64) : async Bool{
@@ -104,20 +157,6 @@ actor class ProposalTrackerBackend() = {
         false
       };
      }
-  };
-
-
-  public func testRunUpdate() : async (){
-   await* tallyService.fetchProposalsAndUpdate()
-  };
-
-  public func testGetPendingProposals() : async Result.Result<[G.ProposalInfo], Text>{
-   await* governanceService.getPendingProposals("dsad");
-  };
-
-
-  public func getProposals(canisterId: Text, after : ?PT.ProposalId, topics : TT.TopicStrategy) : async Result.Result<TT.GetProposalResponse, TT.GetProposalError> {
-    trackerService.getProposals(canisterId, after, topics);
   };
 
   public func testSetLowestActiveId(canisterId: Text, id : ?Nat64) : async Result.Result<(), Text> {
