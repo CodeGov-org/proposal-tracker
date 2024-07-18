@@ -163,7 +163,7 @@ module{
             lastNeuronId
         };
 
-        func addProposalWithId(id : Nat64, topicId : Int32, status : NNSMappings.ProposalStatus) : Nat64 {
+        public func addProposalWithId(id : Nat64, topicId : Int32, status : NNSMappings.ProposalStatus) : Nat64 {
             if(Option.isSome(List.find(proposals, func (p : Proposal) : Bool {
                 isNeuronIdEqual(p.id, id)
                 })
