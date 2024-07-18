@@ -1,3 +1,4 @@
+import Result "mo:base/Result";
 
 module {
 
@@ -62,6 +63,10 @@ public type Vote = {
 
   public type Subscriber = actor {
     tallyUpdate : shared ([TallyFeed]) -> async ();
+  };
+
+  public type TallyCanister = actor {
+    addTally(args : AddTallyArgs) : async Result.Result<(), Text> 
   };
 
 }
