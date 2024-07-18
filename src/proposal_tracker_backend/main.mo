@@ -30,7 +30,7 @@ actor class ProposalTrackerBackend() = {
   stable let trackerData = TR.init();
   let trackerRepository = TR.TrackerRepository(trackerData, logService);
   //TEST ONLY
-  let governanceService = FakeGovernance.FakeGovernanceService();
+  let governanceService = FakeGovernance.FakeGovernanceService(logService);
   //let governanceService = GS.GovernanceService();
   let trackerService = TS.TrackerService(trackerRepository, governanceService, logService, {
     cleanupStrategy = #DeleteAfterTime(#Days(7));
@@ -72,9 +72,10 @@ actor class ProposalTrackerBackend() = {
 
     ignore await* tallyService.addTally({
       governanceId = "7g2oq-raaaa-aaaap-qb7sq-cai";
+      alias = ?"Test Tally";
       topics = [13];
       neurons = Buffer.toArray(neurons);
-      subscriber =?Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
+      subscriber = Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
     });
 
 
@@ -92,6 +93,17 @@ actor class ProposalTrackerBackend() = {
 
   public func testGeneratePendingProposal() : async Nat64{
      governanceService.addProposal(13, #Open);
+  };
+
+  public func testGetProposal(id : Nat64) : async Bool{
+     switch(governanceService.getProposalWithId(id)){
+      case(?e){
+        true
+      };
+      case(_){
+        false
+      };
+     }
   };
 
 

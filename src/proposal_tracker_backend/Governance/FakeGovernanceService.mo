@@ -6,6 +6,7 @@ import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
 import Time "mo:base/Time";
 import NNSMappings "../External_Canisters/NNS/NNSMappings";
+import LogTypes "../Log/LogTypes";
 
 module{
 
@@ -43,7 +44,7 @@ module{
             executed_timestamp_seconds : Nat64;
         };
 
-    public class FakeGovernanceService() {
+    public class FakeGovernanceService(logService : LogTypes.LogService) {
 
         var neurons = List.nil<(Nat64, Neuron)>();
         var proposals = List.nil<Proposal>();
@@ -183,14 +184,16 @@ module{
             lastNeuronId
         };
 
-        public func voteWithNeuronOnProposal(proposalId : Nat64, neuronId : Nat64, vote : NNSMappings.NNSVote) : Result.Result<(), Text>{
+        public func voteWithNeuronOnProposal(neuronId : Nat64, proposalId : Nat64, vote : NNSMappings.NNSVote) : Result.Result<(), Text>{
             let #ok(neuron) = Result.fromOption(getNeuronWithId(neuronId), "Neuron not found")
             else{
+                logService.logError("Neuron not found", ?"[voteWithNeuronOnProposal]");
                 return #err("Neuron not found");
             };
 
             for(ballot in neuron.1.recent_ballots.vals()){
                 if(isNeuronIdEqual(ballot.proposal_id, proposalId)){
+                    logService.logError("Already voted on this proposa", ?"[voteWithNeuronOnProposal]");
                     return #err("Already voted on this proposal");
                 };
             };
@@ -202,6 +205,7 @@ module{
 
             let #ok(status) = processProposalState(proposalId)
             else{
+                logService.logError("Error in processProposalState proposalid : " # Nat64.toText(proposalId) # " neuronId: " # Nat64.toText(neuronId), ?"[voteWithNeuronOnProposal]");
                 return #err("Error in processProposalState");
             };
 
@@ -234,8 +238,8 @@ module{
         };
 
         func processProposalState(proposalId : Nat64) : Result.Result<NNSMappings.ProposalStatus, Text>{
-            let proposal = getProposalWithId(proposalId);
-            switch(proposal){
+            let p = getProposalWithId(proposalId);
+            switch(p){
                 case(?proposal){
                     var approves = 0;
                     var rejects = 0;
@@ -285,7 +289,7 @@ module{
             }
         };
 
-        func getProposalWithId(proposalId : Nat64) : ?Proposal{
+        public func getProposalWithId(proposalId : Nat64) : ?Proposal{
             for(proposal in List.toIter(proposals)){
                 if(isNeuronIdEqual(proposal.id, proposalId)){
                     return ?proposal;
