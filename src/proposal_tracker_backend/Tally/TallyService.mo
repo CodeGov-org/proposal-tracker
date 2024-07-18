@@ -162,7 +162,7 @@ module {
             });
         };
 
-        public func addTally(args : AddTallyArgs) : async* Result.Result<(), Text> {
+        public func addTally(args : AddTallyArgs) : async* Result.Result<TallyId, Text> {
             let governanceId = args.governanceId;
             let res = await* trackerService.addGovernance(governanceId, #All);
 
@@ -212,7 +212,11 @@ module {
                 }
             };
 
-            #ok()
+            #ok(tally.id)
+        };
+
+        public func getTally(tallyId : TallyId) : ?TallyData {
+            Map.get(tallyModel.talliesById, thash, tallyId);
         };
 
         public func update(governanceId : Text, newProposals : [PT.ProposalAPI], changedProposals : [PT.ProposalAPI]) : async* () {

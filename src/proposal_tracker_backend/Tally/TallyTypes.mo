@@ -66,7 +66,7 @@ public type Vote = {
   };
 
   public type TallyCanister = actor {
-    addTally(args : AddTallyArgs) : async Result.Result<(), Text> 
+    addTally(args : AddTallyArgs) : async Result.Result<TallyId, Text> 
   };
 
 }
