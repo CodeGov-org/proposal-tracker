@@ -11,7 +11,9 @@ import Int64 "mo:base/Int64";
 import Nat64 "mo:base/Nat64";
 import Option "mo:base/Option";
 import Utils "../utils";
-
+    // TODO: separate functions and topics
+    // Reconciciliate NNS and SNS differences: (no active_proposals endpoint and topics instead of types)
+    // Status that reflects when proposal no longer accepts votes
 
 module{
 
@@ -39,7 +41,7 @@ module{
         };
 
 
-        public func listProposalsAfterd(governanceId : Text, _after : ?Nat, args :  PT.ListProposalArgs) : async* Result.Result<GT.ListProposalInfoResponse, Text>{
+        public func listProposalsFromId(governanceId : Text, _from : ?PT.ProposalId, args :  PT.ListProposalArgs) : async* Result.Result<GT.ListProposalInfoResponse, Text>{
             let info = {
                 include_reward_status = args.includeRewardStatus;
                 omit_large_fields =  args.omitLargeFields;
@@ -49,7 +51,7 @@ module{
                 include_all_manage_neuron_proposals = args.includeAllManageNeuronProposals;
                 include_status = args.includeStatus;
             };
-            let #ok(after) = Utils.optToRes(_after)
+            let #ok(from) = Utils.optToRes(_from)
             else{
                 return await* governanceService.listProposals(governanceId, info);
             };
@@ -73,9 +75,9 @@ module{
                         for (proposal in Array.vals(res.proposal_info)){
                             switch((proposal.id)){
                                 case((?p)){
-                                    if(Nat64.toNat(p.id) <= after){
+                                    if(p.id < from){
                                         check := true;
-                                    } else if (Nat64.toNat(p.id) > after){
+                                    } else if (p.id >= from){
                                         proposalBuffer.add(proposal);
                                     };
                                     

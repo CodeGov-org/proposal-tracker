@@ -1,5 +1,5 @@
 import Map "mo:map/Map";
-import { nhash; thash; i32hash } "mo:map/Map";
+import { nhash; n64hash; thash; i32hash } "mo:map/Map";
 import Option "mo:base/Option";
 import Time "mo:base/Time";
 import Array "mo:base/Array";
@@ -22,12 +22,11 @@ import LinkedList "mo:linked-list";
 import LT "../Log/LogTypes";
 import PS "../Proposal/ProposalService";
 module {
-
     public class TrackerService(repository: TR.TrackerRepository, governanceService : GS.GovernanceService, logService : LT.LogService, args : TT.TrackerServiceArgs) {
-        let DEFAULT_TICKRATE : Nat = 10; // 10 secs 
+        let DEFAULT_TICKRATE : Nat = 5 * 60 ; //5 mins 
         let proposalService = PS.ProposalService(governanceService, logService);
 
-        public func update(cb : TT.TrackerServiceJob) : async () {
+        public func update(cb : TT.TrackerServiceJob) : async* () {
             label timerUpdate for ((canisterId, governanceData) in Map.entries(repository.getAllGovernance())) {
                 //if lowestActiveProposalId is null, call pending proposal method and sync up until lowest active proposal id
                 if (Option.isNull(governanceData.lowestActiveProposalId)){
@@ -49,14 +48,14 @@ module {
                         else {
                             continue fmin;
                         };
-                        if (Option.isNull(governanceData.lowestActiveProposalId) or Nat64.toNat(id.id) < Option.get(governanceData.lowestActiveProposalId, Nat64.toNat(id.id + 1))){
-                            governanceData.lowestActiveProposalId := ?Nat64.toNat(id.id);
+                        if (Option.isNull(governanceData.lowestActiveProposalId) or id.id < Option.get(governanceData.lowestActiveProposalId, id.id + 1)){
+                            governanceData.lowestActiveProposalId := ?id.id;
                             logService.logInfo("lowestActiveProposalId set to: " # Nat64.toText(id.id), ?"[TrackerService::update]");
                         };
                     };
                 };
 
-                let res = await* proposalService.listProposalsAfterd(canisterId, governanceData.lowestActiveProposalId, {
+                let res = await* proposalService.listProposalsFromId(canisterId, governanceData.lowestActiveProposalId, {
                     includeRewardStatus = [];
                     omitLargeFields = ?true;
                     excludeTopic = [];
@@ -73,14 +72,15 @@ module {
                 //Cleanup proposals if required, expired proposals are purged on the following tick to ensure they have been notified.
                 performCleanupStrategy(governanceData);
 
-                let #ok(newProposals, executedProposals) = repository.processAndUpdateProposals(governanceData, PM.mapGetProposals(newData.proposal_info))
+                let #ok(newProposals, updatedProposals) = repository.processAndUpdateProposals(governanceData, PM.mapGetProposals(newData.proposal_info))
                 else{
                     logService.logError("Error getting proposals processAndUpdateProposals", ?"[TrackerService::update]");
                     continue timerUpdate;
                 };
 
                 //run job callback
-                cb(canisterId, newProposals, executedProposals);
+                await* cb(canisterId, newProposals, updatedProposals);
+                return;
             };
 
         };
@@ -94,7 +94,7 @@ module {
             };
 
             let timerId =  ?Timer.recurringTimer<system>(#seconds(tickrate), func() : async () {
-                await update(job);
+                await* update(job);
             });
             ignore repository.setTimerId(timerId);
 
@@ -122,7 +122,7 @@ module {
         
         public func addGovernance(governancePrincipal : Text, topicStrategy : TT.TopicStrategy) : async* Result.Result<(), Text> {
             if(repository.hasGovernance(governancePrincipal)){
-                return #err("Canister has already been added");
+                return #ok();
             };
 
             let res = await* governanceService.getMetadata(governancePrincipal);
@@ -148,7 +148,7 @@ module {
             switch(args.cleanupStrategy){
                 case(#DeleteAfterExecution){
                     for(p in LinkedList.vals(governanceData.proposals)){
-                        if(not Map.has(governanceData.activeProposalsSet, nhash, p.id)){
+                        if(not Map.has(governanceData.activeProposalsSet, n64hash, p.id)){
                             // proposal has executed, so it can be removed
                             ignore repository.deleteProposal(governanceData, p.id);
                         }
@@ -171,6 +171,13 @@ module {
                         };
 
                         if(check){
+                            ignore repository.deleteProposal(governanceData, p.id);
+                        }
+                    }
+                };
+                case(#DeleteAfterVotingPeriodEnds){
+                    for(p in LinkedList.vals(governanceData.proposals)){
+                        if(p.rewardStatus ==  #Settled){
                             ignore repository.deleteProposal(governanceData, p.id);
                         }
                     }

@@ -12,21 +12,37 @@ import PT "./ProposalTypes";
 
 module{
 
-    func mapStatus(nnsStatus : Int32) : Result.Result<PT.ProposalStatus, Text>{
-        //TODO: find these
+    public func tryMapStatus(nnsStatus : Int32) : Result.Result<PT.ProposalStatus, Text>{
         switch(nnsStatus){
-            case(1){#ok(#Pending)};
-            case(4){#ok(#Executed(#Approved))};
-            case(2){#ok(#Executed(#Rejected))};
+            case(0){#ok(#Unknown)};
+            case(1){#ok(#Open)};
+            case(2){#ok(#Rejected)};
+            case(3){#ok(#Accepted)};
+            case(4){#ok(#Executed)};
+            case(5){#ok(#Failed)};
             case(_){#err("Unknown proposal status")}
         }
     };
+
+
+    public func tryMapRewardStatus(nnsStatus : Int32) : Result.Result<PT.ProposalRewardStatus, Text>{
+        switch(nnsStatus){
+            case(0){#ok(#Unknown)};
+            case(1){#ok(#AcceptVotes)};
+            case(2){#ok(#ReadyToSettle)};
+            case(3){#ok(#Settled)};
+            case(4){#ok(#Ineligible)};
+            case(_){#err("Unknown proposal status")}
+        }
+    };
+
 
     public func proposalToAPI(p : PT.Proposal) : PT.ProposalAPI {
         {
             p with
             status = p.status;
             deadlineTimestampSeconds = p.deadlineTimestampSeconds;
+            rewardStatus = p.rewardStatus;
         };
     };
 
@@ -51,13 +67,18 @@ module{
             case(_){ "" };
         };
 
-        let #ok(status) = mapStatus(nnsProposal.status)
+        let #ok(status) = tryMapStatus(nnsProposal.status)
+        else {
+            return #err("Failed to map proposal status")
+        };
+
+        let #ok(rewardStatus) = tryMapRewardStatus(nnsProposal.reward_status)
         else {
             return #err("Failed to map proposal status")
         };
 
         #ok({
-            id = Nat64.toNat(id);
+            id = id;
             title = title;
             topicId = nnsProposal.topic;
             description = null;
@@ -65,7 +86,8 @@ module{
             timestamp = Int64.toNat64(Int64.fromInt(Time.now()));
             var deadlineTimestampSeconds = nnsProposal.deadline_timestamp_seconds;
             proposalTimestampSeconds = nnsProposal.proposal_timestamp_seconds;
-            var status = status
+            var rewardStatus = rewardStatus;
+            var status = status;
         })
      };
 

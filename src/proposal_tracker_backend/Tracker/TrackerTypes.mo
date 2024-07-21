@@ -7,7 +7,6 @@ import LinkedList "mo:linked-list";
 module {
 
     public type TextPrincipal = Text;
-
     public type GetProposalResponse = {
         #Success : {proposals : [PT.ProposalAPI]; lastId :?PT.ProposalId} ;
         #LimitReached : [PT.ProposalAPI]
@@ -27,12 +26,13 @@ module {
     public type TrackerServiceArgs = {
         cleanupStrategy : {
             //Using this if you want a fetch first model makes no sense, only use if you want to go pub/sub
-            #DeleteAfterExecution;
+           // #DeleteAfterExecution;
             #DeleteAfterTime : {
                 #Days : Nat;
                 #Hours : Nat;
                 #Weeks : Nat;
             };
+           // #DeleteAfterVotingPeriodEnds;
         };
     };
 
@@ -67,9 +67,9 @@ module {
         name : ?Text; //Name of the DAO
         description : ?Text; //Description of the DAO
         topics : Topics; //a set to store valid topic Ids to track for the governance canister
-        var lastProposalId : ?Nat;
-        var lowestProposalId : ?Nat;
-        var lowestActiveProposalId : ?Nat;
+        var lastProposalId : ?PT.ProposalId;
+        var lowestProposalId : ?PT.ProposalId;
+        var lowestActiveProposalId : ?PT.ProposalId;
         proposals :  LinkedList.LinkedList<PT.Proposal>; //sorted list of proposals
         proposalsById : Map.Map<PT.ProposalId, LinkedList.Node<PT.Proposal>>; // map of proposals indexed by proposal id linking to the node in the proposals list for faster iterations
         activeProposalsSet : Map.Map<PT.ProposalId, ()>;
@@ -77,6 +77,15 @@ module {
     };
 
     //task is provided with: governance id, new and updated proposals
-    public type TrackerServiceJob = (governanceId : Text, newProposals : [PT.ProposalAPI], updatedProposals : [PT.ProposalAPI]) -> ();
+    public type TrackerServiceJob = (governanceId : Text, newProposals : [PT.ProposalAPI], updatedProposals : [PT.ProposalAPI]) -> async* ();
+
+    public type TrackerService = {
+        update : (cb : TrackerServiceJob) -> async* ();
+        initTimer : (tickrate : ?Nat, job : TrackerServiceJob) -> async* Result.Result<(), Text>;
+        cancelTimer : () -> Result.Result<(), Text>;
+        updateTimer : (newTickrate : Nat, job : TrackerServiceJob) -> async Result.Result<(), Text>;
+        addGovernance : (governancePrincipal : Text, topicStrategy : TopicStrategy) -> async* Result.Result<(), Text>;
+        getProposals : (canisterId: Text, after : ?PT.ProposalId, topics : TopicStrategy) -> Result.Result<GetProposalResponse, GetProposalError>;
+    };
     
 }

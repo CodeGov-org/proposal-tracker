@@ -680,10 +680,5 @@ module {
     //SNS
     get_metadata: shared query () -> async ( {url: ?Text; logo:?Text; name:?Text; description:?Text});
     list_nervous_system_functions : shared query () -> async(ListNervousSystemFunctionsResponse);
-  };
-
-  // public type GovernanceService ={
-  //   listProposals : (governanceId : Text, info :  GT.ListProposalInfo) -> async* Result.Result<GT.ListProposalInfoResponse, Text>;
-
-  // };
+  }
 }
