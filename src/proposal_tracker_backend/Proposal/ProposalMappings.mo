@@ -6,7 +6,7 @@ import Buffer "mo:base/Buffer";
 import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Int64 "mo:base/Int64";
-import G "../Governance/GovernanceTypes";
+import G "../External_Canisters/NNS/NNSTypes";
 import PT "./ProposalTypes";
 
 

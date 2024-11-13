@@ -7,7 +7,7 @@ import Time "mo:base/Time";
 import Array "mo:base/Array";
 import Result "mo:base/Result";
 import Timer "mo:base/Timer";
-import G "./Governance/GovernanceTypes";
+import G "./External_Canisters/NNS/NNSTypes";
 import GS "./Governance/GovernanceService";
 import FakeGovernance "./Governance/FakeGovernanceService";
 import PT "./Proposal/ProposalTypes";
@@ -38,7 +38,7 @@ actor class ProposalTrackerBackend() = {
   });
 
   stable let tallyModel = TallyService.initTallyModel();
-  let tallyService = TallyService.TallyService(tallyModel, logService, fakeGovernanceService, trackerService);
+  let tallyService = TallyService.TallyService(tallyModel, logService, governanceService, trackerService);
 
   system func postupgrade() {
     if(Option.isSome(tallyModel.timerId)){
@@ -124,6 +124,22 @@ actor class ProposalTrackerBackend() = {
     });
   };
 
+  public func testAddCodegovTally() : async Result.Result<TallyTypes.TallyId, Text>{
+    let codegovNeurons : [TallyTypes.NeuronId] = [118900764328536345, 12979846186887799326, 2692859404205778191, 16405079610149095765, 16459595263909468577, 6542438359604605534, 14998600334911702241, 739503821726316206];
+
+    for(neuron in codegovNeurons.vals()){
+      ignore fakeGovernanceService.addNeuronWithId(neuron);
+    }; 
+
+    await* tallyService.addTally({
+      governanceId = "rrkah-fqaaa-aaaaa-aaaaq-cai";
+      alias = ?"Codegov";
+      topics = [1,2,3,4,5,6,7,8,9,10,11,12,13];
+      neurons = codegovNeurons;
+      subscriber = Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
+    });
+  };
+
   public func testVoteWithTallyOnProposal(tallyId : Text, proposalId : Nat64, vote : {#No; #Unspecified; #Yes}) : async Result.Result<(), Text>{
     let t = tallyService.getTally(tallyId);
     switch(t){
@@ -149,22 +165,6 @@ actor class ProposalTrackerBackend() = {
 
   public func testFetchProposalsAndUpdate() : async (){
     await* tallyService.fetchProposalsAndUpdate();
-  };
-
-  public func testAddCodegovTally() : async Result.Result<TallyTypes.TallyId, Text>{
-    let codegovNeurons : [TallyTypes.NeuronId] = [118900764328536345, 12979846186887799326, 2692859404205778191, 16405079610149095765, 16459595263909468577, 6542438359604605534, 14998600334911702241, 739503821726316206];
-
-    for(neuron in codegovNeurons.vals()){
-      ignore fakeGovernanceService.addNeuronWithId(neuron);
-    }; 
-
-    await* tallyService.addTally({
-      governanceId = "rrkah-fqaaa-aaaaa-aaaaq-cai";
-      alias = ?"Codegov";
-      topics = [1,2,3,4,5,6,7,8,9,10,11,12,13];
-      neurons = codegovNeurons;
-      subscriber = Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
-    });
   };
 
   public func testAddPendingProposal(id : ?Nat64) : async Nat64{

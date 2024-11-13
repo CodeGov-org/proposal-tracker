@@ -49,9 +49,7 @@ module {
   };
   public type ClaimOrRefresh = { by : ?By };
   public type ClaimOrRefreshResponse = { refreshed_neuron_id : ?NeuronId };
-  public type ClaimSwapNeuronsRequest = {
-    neuron_parameters : [NeuronParameters];
-  };
+  public type ClaimSwapNeuronsRequest = { neuron_recipes : ?NeuronRecipes };
   public type ClaimSwapNeuronsResponse = {
     claim_swap_neurons_result : ?ClaimSwapNeuronsResult;
   };
@@ -110,6 +108,7 @@ module {
   public type DefiniteCanisterSettingsArgs = {
     freezing_threshold : Nat;
     controllers : [Principal];
+    wasm_memory_limit : ?Nat;
     memory_allocation : Nat;
     compute_allocation : Nat;
   };
@@ -327,6 +326,7 @@ module {
     neuron_fees_e8s : Nat64;
   };
   public type NeuronId = { id : Blob };
+  public type NeuronIds = { neuron_ids : [NeuronId] };
   public type NeuronInFlightCommand = {
     command : ?Command_2;
     timestamp : Nat64;
@@ -345,6 +345,20 @@ module {
     permission_type : [Int32];
   };
   public type NeuronPermissionList = { permissions : [Int32] };
+  public type NeuronRecipe = {
+    controller : ?Principal;
+    dissolve_delay_seconds : ?Nat64;
+    participant : ?Participant;
+    stake_e8s : ?Nat64;
+    followees : ?NeuronIds;
+    neuron_id : ?NeuronId;
+  };
+  public type NeuronRecipes = { neuron_recipes : [NeuronRecipe] };
+  public type NeuronsFund = {
+    nns_neuron_hotkeys : ?Principals;
+    nns_neuron_controller : ?Principal;
+    nns_neuron_id : ?Nat64;
+  };
   public type Operation = {
     #ChangeAutoStakeMaturity : ChangeAutoStakeMaturity;
     #StopDissolving : {};
@@ -352,7 +366,9 @@ module {
     #IncreaseDissolveDelay : IncreaseDissolveDelay;
     #SetDissolveTimestamp : SetDissolveTimestamp;
   };
+  public type Participant = { #NeuronsFund : NeuronsFund; #Direct : {} };
   public type Percentage = { basis_points : ?Nat64 };
+  public type Principals = { principals : [Principal] };
   public type Proposal = {
     url : Text;
     title : Text;
@@ -466,7 +482,7 @@ module {
   public type WaitForQuietState = {
     current_deadline_timestamp_seconds : Nat64;
   };
-  public type Self = Governance -> async actor {
+  public type SNSCanister = actor {
     claim_swap_neurons : shared ClaimSwapNeuronsRequest -> async ClaimSwapNeuronsResponse;
     fail_stuck_upgrade_in_progress : shared {} -> async {};
     get_build_metadata : shared query () -> async Text;

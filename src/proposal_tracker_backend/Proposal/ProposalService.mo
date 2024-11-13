@@ -1,6 +1,5 @@
 import GS "../Governance/GovernanceService";
-import GT "../Governance/GovernanceTypes";
-import GU "../Governance/GovernanceUtils";
+import GT "../External_Canisters/NNS/NNSTypes";
 import LT "../Log/LogTypes";
 import PT "./ProposalTypes";
 import Result "mo:base/Result";
@@ -13,32 +12,13 @@ import Option "mo:base/Option";
 import Utils "../utils";
     // TODO: separate functions and topics
     // Reconciciliate NNS and SNS differences: (no active_proposals endpoint and topics instead of types)
-    // Status that reflects when proposal no longer accepts votes
-
 module{
 
     let BATCH_SIZE_LIMIT = 50;
     let NNS_GOVERNANCE_ID = "rrkah-fqaaa-aaaaa-aaaaq-cai";
 
+    //todo fix this
     public class ProposalService(governanceService : GS.GovernanceService, logService : LT.LogService){
-        public func getValidTopicIds(governanceId : Text) : async* Result.Result<[(Int32, Text, ?Text)], Text>{
-            if (governanceId == NNS_GOVERNANCE_ID){
-                return #ok(GU.NNSFunctions);
-            };
-            let buf = Buffer.Buffer<(Int32, Text, ?Text)>(50);
-            let res = await* governanceService.getGovernanceFunctions(governanceId);
-            switch(res){
-                case(#ok(res)){
-                    for(function in Array.vals(res.functions)){
-                        buf.add((Int32.fromInt64(Int64.fromNat64(function.id))), function.name, function.description);
-                    };
-                    return #ok(Buffer.toArray(buf));
-                };
-                case(#err(err)){
-                    return #err(err);
-                };
-            };
-        };
 
 
         public func listProposalsFromId(governanceId : Text, _from : ?PT.ProposalId, args :  PT.ListProposalArgs) : async* Result.Result<GT.ListProposalInfoResponse, Text>{
@@ -110,25 +90,13 @@ module{
         #ok({proposal_info = Buffer.toArray(proposalBuffer)}); 
     }
   };
-
-    // public func processIncludeTopics(validTopics : [(Int32, Text, ?Text)], topicsToInclude : [Int32]) : [Int32] {
-    //     return Array.mapFilter<(Int32, Text, ?Text), Int32>(validTopics, func (t : (Int32, Text, ?Text)) : ?Int32 {
-    //         for(id in Array.vals(topicsToInclude)){
-    //             if(id != t.0){
-    //                 return ?t.0;
-    //             }
-    //         };
-    //         return null;
-    //     });
-    // };
-
     
-    public func processIncludeTopics(validTopics : [(Int32, Text, ?Text)], topicsToInclude : [Int32]) : [Int32] {
+    public func processIncludeTopics(validTopics : [{id : Nat64;name : Text;description : ?Text;}], topicsToInclude : [Nat64]) : [Nat64] {
 
-        let buf = Buffer.Buffer<Int32>(50);
+        let buf = Buffer.Buffer<Nat64>(50);
         for(id in Array.vals(validTopics)){
-            if(Option.isNull(Array.find(topicsToInclude, func (x : Int32) : Bool { return x == id.0 }))){
-                buf.add(id.0);
+            if(Option.isNull(Array.find(topicsToInclude, func (x : Nat64) : Bool { return x == id.id }))){
+                buf.add(id.id);
             };
         };
 
@@ -136,7 +104,7 @@ module{
     };
 
 
-    public func ListProposalArgsDefault() : PT.ListProposalArgs {
+    public func listProposalArgsDefault() : PT.ListProposalArgs {
         {
             includeRewardStatus = [];
             omitLargeFields = ?true;

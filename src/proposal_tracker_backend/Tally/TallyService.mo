@@ -14,11 +14,11 @@ import PT "../Proposal/ProposalTypes";
 import { nhash; thash; phash; n64hash; i32hash} "mo:map/Map";
 import GS "../Governance/GovernanceService";
 import LT "../Log/LogTypes";
-import GT "../Governance/GovernanceTypes";
+import GT "../External_Canisters/NNS/NNSTypes";
 import TT "../Tracker/TrackerTypes";
 import TallyTypes "../Tally/TallyTypes";
 import Utils "../utils";
-import GM "../Governance/GovernanceMappings";
+import NNSMappings "../External_Canisters/NNS/NNSMappings";
 
 module {
 
@@ -102,7 +102,6 @@ module {
         };
     };
 
-    // Feed id based on hash calculated by neurons ids and topics to avoid duplication
     public class TallyService(tallyModel : TallyModel, logService: LT.LogService, governanceService : GS.GovernanceService, trackerService : TT.TrackerService) {
 
         var updateState : UpdateState = #Stopped;
@@ -120,23 +119,6 @@ module {
             });
 
             return #ok()
-        };
-
-        public func fetchProposalsAndUpdate() : async* (){
-            if(updateState == #Running){
-                logService.logWarn("Update already running", ?"[update]");
-                return;
-            };
-
-            updateState:= #Running;
-            try{
-                await* trackerService.update(func(governanceId : Text, new : [PT.ProposalAPI], updated : [PT.ProposalAPI]) : async* () {
-                    await* update(governanceId, new, updated);
-                });
-            } catch(e){
-                updateState:= #Stopped;
-            };
-            updateState:= #Stopped;
         };
 
         public func cancelTimer() : async Result.Result<(), Text> {
@@ -220,6 +202,26 @@ module {
             Map.get(tallyModel.talliesById, thash, tallyId);
         };
 
+
+        //TODO: change
+        public func fetchProposalsAndUpdate() : async* (){
+            if(updateState == #Running){
+                logService.logWarn("Update already running", ?"[update]");
+                return;
+            };
+
+            updateState:= #Running;
+            try{
+                await* trackerService.update(func(governanceId : Text, new : [PT.ProposalAPI], updated : [PT.ProposalAPI]) : async* () {
+                    await* update(governanceId, new, updated);
+                });
+            } catch(e){
+                updateState:= #Stopped;
+            };
+            updateState:= #Stopped;
+        };
+
+
         public func update(governanceId : Text, newProposals : [PT.ProposalAPI], changedProposals : [PT.ProposalAPI]) : async* () {
 
             //init proposal map for governance id if it doesnt exist
@@ -285,6 +287,8 @@ module {
                         let res = await* governanceService.listNeurons(governanceId, {
                             neuron_ids = chunk;
                             include_neurons_readable_by_caller = false;
+                            include_empty_neurons_readable_by_caller = null;
+                            include_public_neurons_in_full_neurons = null;
                         });
 
                         switch(res){
@@ -329,7 +333,7 @@ module {
 
                 let #ok(proposal) = Result.fromOption(Map.get(proposals, n64hash, pId.id), "proposal not found")
                 else {
-                    //logService.logError("proposal not found", ?"[getProposalDeltaAndUpdateState]"); //TODO: reenable
+                    logService.logError("proposal not found", ?"[getProposalDeltaAndUpdateState]");
                     continue l;
                 };
 
@@ -341,7 +345,7 @@ module {
                 //
                 switch(Map.get(proposal.ballots, n64hash, neuronId)){
                     case(?vote) {
-                        let newVote = GM.tryMapVote(ballot.vote);
+                        let newVote = NNSMappings.tryMapVoteFromInt(ballot.vote);
                         switch(newVote){
                             case(#ok(mappedBallotVote)) {
                                 if(vote != mapVote(mappedBallotVote, proposal.isSettled)){
@@ -356,7 +360,7 @@ module {
                         };
                     };
                     case(_){
-                        let vote = GM.tryMapVote(ballot.vote);
+                        let vote = NNSMappings.tryMapVoteFromInt(ballot.vote);
                         switch(vote){
                              case(#ok(mappedBallotVote)){
                                 let v = mapVote(mappedBallotVote, proposal.isSettled);
@@ -548,7 +552,7 @@ module {
             await sub.tallyUpdate(tallies);
         };
 
-        func mapVote(vote : GM.Vote, isSettled : Bool) : NeuronVote{
+        func mapVote(vote : NNSMappings.NNSVote, isSettled : Bool) : NeuronVote{
             switch(vote){
                 case(#Yes){
                     #Yes
