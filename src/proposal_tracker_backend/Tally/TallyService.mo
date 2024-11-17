@@ -683,16 +683,15 @@ module {
                 
                 switch(Map.get(neuronTallies, thash, neuron)){
                     case(?tallies){
-                        var relatedProposals = List.nil<Proposal>();
                         for(tally in List.toIter(tallies)) {
-
+                            var relatedProposals = List.nil<Proposal>();
                             for(proposalId in List.toIter(proposalList)) {
                                 let #ok(proposal) = getProposal(governanceId, proposalId)
                                 else {
                                     continue l;
                                 };
                                 if (Map.has(tally.topics, i32hash, proposal.topicId)) {
-                                    logService.logInfo("Tally ID: " # tally.id # " is affected cause proposal: " # Nat64.toText(proposal.id), ?"[processAffectedTallies]");
+                                    //logService.logInfo("Tally ID: " # tally.id # " is affected cause proposal: " # Nat64.toText(proposal.id), ?"[processAffectedTallies]");
                                     relatedProposals := List.push(proposal, relatedProposals);
                                 };
                             };
@@ -704,6 +703,10 @@ module {
                     case(_){};
                 };
             };
+
+            // for((key, value) in Map.entries(affectedTallies)){
+            //     logService.logInfo("Proposals affected by tallyid: " # key # " n times:" # Nat.toText(List.size(value)), null);
+            // };
             affectedTallies
         };
 
@@ -784,15 +787,16 @@ module {
             };
         };
 
-        func chunkedSend(governanceId : Text, subscriberTallies : List.List<TallyData>, affectedTallies : Map.Map<TallyId, List.List<Proposal>>, chunkSize : Nat) : async* () {
+        func chunkedSend(subId : Text, subscriberTallies : List.List<TallyData>, affectedTallies : Map.Map<TallyId, List.List<Proposal>>, chunkSize : Nat) : async* () {
             let tallyChunk = Buffer.Buffer<TallyTypes.TallyFeed>(chunkSize);
             for(tally in List.toIter(subscriberTallies)) {
                 //if(Map.has(affectedTallies, thash, tally.id)){
                     switch(Map.get(affectedTallies, thash, tally.id)){
                         case(?proposals){
+                            //logService.logInfo("Proposals affected by tallyid: " # tally.id # Nat.toText(List.size(proposals)), null);
                             tallyChunk.add(processTally(tally, proposals));
                             if(tallyChunk.size() >= chunkSize) {
-                                await* notifySubscriber(governanceId, Buffer.toArray(tallyChunk));
+                                await* notifySubscriber(subId, Buffer.toArray(tallyChunk));
                                 tallyChunk.clear();
                             }
                         };
@@ -801,12 +805,13 @@ module {
                // };
             };
             if(tallyChunk.size() > 0) {
-                await* notifySubscriber(governanceId, Buffer.toArray(tallyChunk));
+                await* notifySubscriber(subId, Buffer.toArray(tallyChunk));
             };
         };
         
-        func notifySubscriber(governanceId : Text, tallies : [TallyTypes.TallyFeed]) : async* () {
-            let sub : TallyTypes.Subscriber = actor (governanceId);
+        public func notifySubscriber(subId : Text, tallies : [TallyTypes.TallyFeed]) : async* () {
+            logService.logInfo("Notifying subscriber", null);
+            let sub : TallyTypes.Subscriber = actor (subId);
             await sub.tallyUpdate(tallies);
         };
 
