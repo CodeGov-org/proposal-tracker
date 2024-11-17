@@ -52,6 +52,14 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     }
   };
 
+  public shared ({ caller }) func initTimer(tickrateInSeconds : ?Nat) : async Result.Result<(), Text>{
+    if (not G.isCustodian(caller, custodians)) {
+        return #err("Not authorized");
+    };
+
+    await tallyService.init(tickrateInSeconds);
+  };
+
    public shared ({ caller }) func addTally(args : TallyService.AddTallyArgs) : async Result.Result<TallyTypes.TallyId, Text>{
     if (not G.isCustodian(caller, custodians)) {
       return #err("Not authorized");
@@ -85,13 +93,46 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
        }
     };
 
-  public func deleteTally(tallyId : TallyTypes.TallyId) : async Result.Result<(), Text> {
+    public shared ({ caller }) func deleteTally(tallyId : TallyTypes.TallyId) : async Result.Result<(), Text> {
+      if (not G.isCustodian(caller, custodians)) {
+        return #err("Not authorized");
+      };
+
+      tallyService.deleteTally(tallyId)
+    };
+
+  public shared ({ caller }) func updateTally(tallyId : TallyTypes.TallyId, newTally : {topics : [TallyTypes.TopicId]; neurons : [TallyTypes.NeuronId] }) : async Result.Result<(), Text> {
     if (not G.isCustodian(caller, custodians)) {
       return #err("Not authorized");
     };
 
-    tallyService.deleteTally(tallyId)
+    tallyService.updateTally(tallyId, newTally)
   };
+
+  public shared ({ caller }) func getSubscribersByTallyId(tallyId : TallyTypes.TallyId) : async [Principal] {
+    tallyService.getSubscribersByTallyId(tallyId)
+  };
+
+  public shared ({ caller }) func getTalliesByPrincipal(principal : Principal) : async Result.Result<[{id : Text; alias : ?Text}], Text> {
+    tallyService.getTalliesByPrincipal(principal)
+  };
+  
+   public shared ({ caller }) func addSubscriber(subscriber : Principal, tallyId : TallyTypes.TallyId) : async Result.Result<(), Text> {
+    if (not G.isCustodian(caller, custodians)) {
+      return #err("Not authorized");
+    };
+
+    tallyService.addSubscriber(subscriber, tallyId)
+   };
+
+   public shared ({ caller }) func deleteSubscriber(subscriber : Principal, tallyId : TallyTypes.TallyId) : async Result.Result<(), Text>{
+    if (not G.isCustodian(caller, custodians)) {
+      return #err("Not authorized");
+    };
+
+    tallyService.deleteSubscriber(subscriber, tallyId)
+   };
+
   
   // TEST ENDPOINTS
 
@@ -182,7 +223,7 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     await* tallyService.fetchProposalsAndUpdate();
   };
 
-  public func testAddPendingProposal(id : ?Nat64) : async Nat64{
+  public func testAddMockPendingProposal(id : ?Nat64) : async Nat64{
     switch(id){
       case(?unwrapId){
         fakeGovernanceService.addProposalWithId(unwrapId, 13, #Open);
@@ -193,7 +234,7 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     };
   };
 
-  public func testGetPendingProposals() : async Result.Result<[NNSTypes.ProposalInfo], Text>{
+  public func testGetMockPendingProposals() : async Result.Result<[NNSTypes.ProposalInfo], Text>{
    await* fakeGovernanceService.getPendingProposals("asa");
   };
 
@@ -213,7 +254,7 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     trackerService.getProposals(canisterId, after, topics);
   };
 
-  public func testGetProposal(id : Nat64) : async Bool{
+  public func testGetMockProposal(id : Nat64) : async Bool{
      switch(fakeGovernanceService.getProposalWithId(id)){
       case(?e){
         true

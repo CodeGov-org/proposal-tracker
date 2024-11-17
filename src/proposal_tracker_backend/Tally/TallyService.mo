@@ -84,6 +84,7 @@ module {
 
         var lastId : Nat;
         var timerId :?Nat;
+        var tickrateInSeconds : ?Nat;
     };
 
     public func initTallyModel() : TallyModel {
@@ -99,6 +100,7 @@ module {
 
             var lastId = 0;
             var timerId = null;
+            var tickrateInSeconds = null;
         };
     };
 
@@ -109,12 +111,14 @@ module {
         public func initTimer<system>(_tickrateInSeconds : ?Nat) : async Result.Result<(), Text> {
                     
             let tickrate : Nat = Option.get(_tickrateInSeconds, 5 * 60); // 5 minutes
+            tallyModel.tickrateInSeconds := ?tickrate;
             switch(tallyModel.timerId){
                 case(?t){ return #err("Timer already created")};
                 case(_){};
             };
 
             tallyModel.timerId := ?Timer.recurringTimer<system>(#seconds(tickrate), func() : async () {
+                logService.logInfo("Running timer", null);
                 await* fetchProposalsAndUpdate()
             });
 
@@ -134,15 +138,8 @@ module {
             }
         };
 
-        public func init() : async Result.Result<(), Text> {
-            await* trackerService.initTimer(?300, func(governanceId : Text, new : [PT.ProposalAPI], updated : [PT.ProposalAPI]) : async* () {
-                // Debug.print("Tick");
-                // Debug.print("new proposals: " # debug_show(new));
-                // Debug.print("updated proposals: " # debug_show(updated));
-                // Debug.print("governanceId: " # governanceId);
-
-                // await* update(governanceId, new, updated);
-            });
+        public func init(tickrateInSeconds : ?Nat) : async Result.Result<(), Text> {
+            await initTimer(tickrateInSeconds);
         };
 
         public func addTally(args : AddTallyArgs) : async* Result.Result<TallyId, Text> {
@@ -335,7 +332,7 @@ module {
                     Map.set(addedTopics, i32hash, topic, ());
                 };
             };
-            
+
             //if the neuron is not in the new list it has to be removed from the tally neurons and the neuron itself has to be updated
             for(neuronTally in Map.keys(tally.neurons)){
                 if(not Map.has(neuronSet, thash, neuronTally)){
@@ -448,10 +445,14 @@ module {
             Buffer.toArray(buf);
         };
 
-        public func getTalliesByPrincipal(principal : Principal) : Result.Result<[TallyData], Text> {
+        public func getTalliesByPrincipal(principal : Principal) : Result.Result<[{id : Text; alias : ?Text}], Text> {
             switch(Map.get(tallyModel.subscribers, phash, principal)){
                 case(?tallies){
-                    #ok(List.toArray(tallies))
+                    var buf = Buffer.Buffer<{id : Text; alias : ?Text}>(20);
+                    for(tally in List.toIter(tallies)){
+                        buf.add({id = tally.id; alias = tally.alias;});
+                    };
+                    #ok(Buffer.toArray(buf))
                 };
                 case(_){
                     return #err("No tallies found")
@@ -589,7 +590,7 @@ module {
 
                 let #ok(proposal) = Result.fromOption(Map.get(proposals, n64hash, pId.id), "proposal not found")
                 else {
-                    logService.logError("proposal not found", ?"[getProposalDeltaAndUpdateState]");
+                    logService.logError("Proposal not found: " # Nat64.toText(pId.id), ?"[getProposalDeltaAndUpdateState]");
                     continue l;
                 };
 
