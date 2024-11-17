@@ -74,7 +74,7 @@ module {
 
     public type TallyModel = {
         neurons : Map.Map<GovernanceId, Map.Map<NeuronId, NeuronData>>;
-        tallies : Map.Map<GovernanceId, Map.Map<TallyId, TallyData>>;
+        //tallies : Map.Map<GovernanceId, Map.Map<TallyId, TallyData>>;
         proposals : Map.Map<GovernanceId, Map.Map<ProposalId, Proposal>>;
         settledProposals : Map.Map<GovernanceId, Map.Map<ProposalId, Proposal>>;
         subscribers : Map.Map<Principal, List.List<TallyData>>;
@@ -90,7 +90,7 @@ module {
     public func initTallyModel() : TallyModel {
         {
             neurons = Map.new<GovernanceId, Map.Map<NeuronId, NeuronData>>();
-            tallies = Map.new<GovernanceId, Map.Map<TallyId, TallyData>>();
+            //tallies = Map.new<GovernanceId, Map.Map<TallyId, TallyData>>();
             proposals = Map.new<GovernanceId, Map.Map<ProposalId, Proposal>>();
             settledProposals = Map.new<GovernanceId, Map.Map<ProposalId, Proposal>>();
             subscribers = Map.new<Principal, List.List<TallyData>>();
@@ -155,8 +155,8 @@ module {
             tallyModel.lastId := tallyModel.lastId + 1;
             let topicSet = Utils.arrayToSet(args.topics, i32hash);
             let tally : TallyData = {id = tallyId; alias = args.alias; governanceCanister = governanceId; var topics = topicSet; var neurons = Utils.arrayToSet(args.neurons, thash); ballots = Map.new<ProposalId, NeuronVote>()};
-            let tallyMap = Utils.getElseCreate(tallyModel.tallies, thash, governanceId, Map.new<TallyId, TallyData>());
-            Map.set(tallyMap, thash, tallyId, tally);
+            // let tallyMap = Utils.getElseCreate(tallyModel.tallies, thash, governanceId, Map.new<TallyId, TallyData>());
+            // Map.set(tallyMap, thash, tallyId, tally);
             
             switch(args.subscriber){
                 case(?subscriber){
@@ -294,12 +294,12 @@ module {
             };
 
 
-            switch(Map.get(tallyModel.tallies, thash, tally.governanceCanister)){
-                case(?tallies){
-                    Map.delete(tallies, thash, tallyId);
-                };
-                case(_){};
-            };
+            // switch(Map.get(tallyModel.tallies, thash, tally.governanceCanister)){
+            //     case(?tallies){
+            //         Map.delete(tallies, thash, tallyId);
+            //     };
+            //     case(_){};
+            // };
 
 
             #ok()
@@ -460,7 +460,7 @@ module {
             };
         };
 
-        //TODO: change
+        //TODO: change for SNS
         public func fetchProposalsAndUpdate() : async* (){
             if(updateState == #Running){
                 logService.logWarn("Update already running", ?"[update]");
@@ -590,7 +590,7 @@ module {
 
                 let #ok(proposal) = Result.fromOption(Map.get(proposals, n64hash, pId.id), "proposal not found")
                 else {
-                    logService.logError("Proposal not found: " # Nat64.toText(pId.id), ?"[getProposalDeltaAndUpdateState]");
+                    //logService.logError("Proposal not found: " # Nat64.toText(pId.id), ?"[getProposalDeltaAndUpdateState]");
                     continue l;
                 };
 
@@ -692,6 +692,7 @@ module {
                                     continue l;
                                 };
                                 if (Map.has(tally.topics, i32hash, proposal.topicId)) {
+                                    logService.logInfo("Tally ID: " # tally.id # " is affected cause proposal: " # Nat64.toText(proposal.id), ?"[processAffectedTallies]");
                                     relatedProposals := List.push(proposal, relatedProposals);
                                 };
                             };
@@ -786,7 +787,7 @@ module {
         func chunkedSend(governanceId : Text, subscriberTallies : List.List<TallyData>, affectedTallies : Map.Map<TallyId, List.List<Proposal>>, chunkSize : Nat) : async* () {
             let tallyChunk = Buffer.Buffer<TallyTypes.TallyFeed>(chunkSize);
             for(tally in List.toIter(subscriberTallies)) {
-                if(Map.has(affectedTallies, thash, tally.id)){
+                //if(Map.has(affectedTallies, thash, tally.id)){
                     switch(Map.get(affectedTallies, thash, tally.id)){
                         case(?proposals){
                             tallyChunk.add(processTally(tally, proposals));
@@ -797,7 +798,7 @@ module {
                         };
                         case(_){};
                     }
-                };
+               // };
             };
             if(tallyChunk.size() > 0) {
                 await* notifySubscriber(governanceId, Buffer.toArray(tallyChunk));
