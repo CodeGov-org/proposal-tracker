@@ -13,6 +13,8 @@ import NNSTypes "../External_Canisters/NNS/NNSTypes";
 import NNSMappings "../External_Canisters/NNS/NNSMappings";
 import SNSTypes "../External_Canisters/SNS/SNSTypes";
 
+    // TODO: separate functions and topics
+    // Reconciciliate NNS and SNS differences: (no active_proposals endpoint and topics instead of types)
 module {
     public class GovernanceService() {
         // let BATCH_SIZE_LIMIT = 50;

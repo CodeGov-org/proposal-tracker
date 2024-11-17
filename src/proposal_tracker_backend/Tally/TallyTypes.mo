@@ -23,9 +23,10 @@ module {
   };
 
     public type GovernanceId = Text;
-    public type NeuronId = Nat64;
+    public type NeuronId = Text;
     public type TallyId = Text;
     public type ProposalId = Nat64;
+    public type TopicId = Int32;
 
 public type Vote = {
     #Yes;
@@ -56,16 +57,16 @@ public type Vote = {
   public type TallyInfo = {
     tallyId : TallyId;
     alias : ?Text;
-    topics : [Int32];
+    topics : [TopicId];
     neurons : [NeuronId];
   };
 
   public type AddTallyArgs = {
       governanceId : Text;
       alias : ?Text;
-      topics : [Int32];
+      topics : [TopicId];
       neurons : [NeuronId];
-      subscriber : Principal;
+      subscriber : ?Principal;
   };
 
   public type Subscriber = actor {

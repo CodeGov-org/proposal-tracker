@@ -10,8 +10,6 @@ import Int64 "mo:base/Int64";
 import Nat64 "mo:base/Nat64";
 import Option "mo:base/Option";
 import Utils "../utils";
-    // TODO: separate functions and topics
-    // Reconciciliate NNS and SNS differences: (no active_proposals endpoint and topics instead of types)
 module{
 
     let BATCH_SIZE_LIMIT = 50;

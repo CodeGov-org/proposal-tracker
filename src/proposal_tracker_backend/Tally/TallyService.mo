@@ -44,25 +44,25 @@ module {
     type NeuronId = TallyTypes.NeuronId;
     type TallyId = TallyTypes.TallyId;
     type ProposalId = TallyTypes.ProposalId;
+    type TopicId = TallyTypes.TopicId;
 
     type NeuronData = {
         id : NeuronId;
-        tallies : List.List<TallyId>;
-        topics : Map.Map<Int32, ()>;
+        topics : Map.Map<TopicId, ()>;
     };
 
     type TallyData = { 
         id : TallyId;
         alias : ?Text;
         governanceCanister : Text;
-        topics : Map.Map<Int32, ()>;
-        neurons : Map.Map<NeuronId, ()>;
+        var topics : Map.Map<TopicId, ()>;
+        var neurons : Map.Map<NeuronId, ()>;
     };
 
     type Proposal = {
         id : ProposalId; 
         isSettled : Bool; 
-        topicId : Int32; 
+        topicId : TopicId; 
         ballots : Map.Map<NeuronId, NeuronVote>;
         settledTimestamp : ?Time.Time;
     };
@@ -157,12 +157,17 @@ module {
             let tallyId : Text = Nat.toText(tallyModel.lastId + 1);
             tallyModel.lastId := tallyModel.lastId + 1;
             let topicSet = Utils.arrayToSet(args.topics, i32hash);
-            let tally : TallyData = {id = tallyId; alias = args.alias; governanceCanister = governanceId; topics = topicSet; neurons = Utils.arrayToSet(args.neurons, n64hash); ballots = Map.new<ProposalId, NeuronVote>()};
+            let tally : TallyData = {id = tallyId; alias = args.alias; governanceCanister = governanceId; var topics = topicSet; var neurons = Utils.arrayToSet(args.neurons, thash); ballots = Map.new<ProposalId, NeuronVote>()};
             let tallyMap = Utils.getElseCreate(tallyModel.tallies, thash, governanceId, Map.new<TallyId, TallyData>());
             Map.set(tallyMap, thash, tallyId, tally);
-
-            let subTallies = Utils.getElseCreate(tallyModel.subscribers, phash, args.subscriber, List.nil());
-            Map.set(tallyModel.subscribers, phash, args.subscriber, List.push(tally, subTallies));
+            
+            switch(args.subscriber){
+                case(?subscriber){
+                    let subTallies = Utils.getElseCreate(tallyModel.subscribers, phash, subscriber, List.nil());
+                    Map.set(tallyModel.subscribers, phash, subscriber, List.push(tally, subTallies));
+                };
+                case(_){};
+            };
 
 
             Map.set(tallyModel.talliesById, thash, tallyId, tally);
@@ -170,27 +175,28 @@ module {
             let neuronMap = Utils.getElseCreate(tallyModel.neurons, thash, governanceId, Map.new<NeuronId, NeuronData>());
             let tallyByNeuronMap = Utils.getElseCreate(tallyModel.talliesByNeuron, thash, governanceId, Map.new<NeuronId, List.List<TallyData>>());
             for(neuronId in args.neurons.vals()){
-                switch(Map.get(neuronMap, n64hash, neuronId)){
+                switch(Map.get(neuronMap, thash, neuronId)){
                     case(?neuron) {
                         for(topic in Map.keys(topicSet)){
                             Map.set(neuron.topics, i32hash, topic, ());
                         };
 
-                        Map.set(neuronMap, n64hash, neuronId, {neuron with tallies = List.push(tallyId, neuron.tallies)});
+                        //Map.set(neuronMap, thash, neuronId, {neuron with tallies = List.push(tallyId, neuron.tallies)});
                     };
                     case(_){
-                        Map.set(neuronMap, n64hash, neuronId, {id = neuronId; topics = topicSet; tallies = List.push(tallyId, List.nil<TallyId>())});
+                        //Map.set(neuronMap, thash, neuronId, {id = neuronId; topics = topicSet; tallies = List.push(tallyId, List.nil<TallyId>())});
+                        Map.set(neuronMap, thash, neuronId, {id = neuronId; topics = topicSet;});
                     };
                 };
 
-                switch(Map.get(tallyByNeuronMap, n64hash, neuronId)){
+                switch(Map.get(tallyByNeuronMap, thash, neuronId)){
                     case(?tallies) {
-                        Map.set(tallyByNeuronMap, n64hash, neuronId, List.push(tally, tallies));
+                        Map.set(tallyByNeuronMap, thash, neuronId, List.push(tally, tallies));
                     };
                     case(_){
                         var tallyList = List.nil<TallyData>();
                         tallyList := List.push(tally, tallyList);
-                        Map.set(tallyByNeuronMap, n64hash, neuronId, tallyList);
+                        Map.set(tallyByNeuronMap, thash, neuronId, tallyList);
                     };
                 }
             };
@@ -202,6 +208,122 @@ module {
             Map.get(tallyModel.talliesById, thash, tallyId);
         };
 
+        func deleteNeuron(governanceId : GovernanceId, neuronId : NeuronId) : () {
+            switch(Map.get(tallyModel.neurons, thash, governanceId)){
+                case(?neuronMap){
+                    Map.delete(neuronMap, thash, neuronId);
+                };
+                case(_){};
+            };
+        };
+
+        public func deleteTally(tallyId : TallyId) : Result.Result<(), Text> {
+            if(updateState == #Running){
+                return #err("Tallies are being updated, deleting could cause issues with global state");
+            };
+
+            let #ok(tally) = Utils.optToRes(getTally(tallyId)) else {return #err("Tally not found")};
+            Map.delete(tallyModel.talliesById, thash, tallyId);
+
+            for ((sub, tally) in Map.entries(tallyModel.subscribers)){
+                Map.set(tallyModel.subscribers, phash, sub, List.filter(tally, func(t : TallyData) : Bool {t.id != tallyId}));
+            };
+
+            switch(Map.get(tallyModel.talliesByNeuron, thash, tally.governanceCanister)){
+                case(?neurons){
+                    for(neuronId in Map.keys(neurons)){
+                        switch(Map.get(neurons, thash, neuronId)){
+                            case(?tallies){
+                                let newList = List.filter(tallies, func(t : TallyData) : Bool {t.id != tallyId});
+                                //If no tallies depend on this neuron anymore it should be deleted.
+                                if(List.size(newList) == 0){
+                                    deleteNeuron(tally.governanceCanister, neuronId);
+                                } else {
+                                    Map.set(neurons, thash, neuronId, newList);
+                                };
+                            };
+                            case(_){};
+                        };
+                    };
+                };
+                case(_){};
+            };
+
+
+            switch(Map.get(tallyModel.tallies, thash, tally.governanceCanister)){
+                case(?tallies){
+                    Map.delete(tallies, thash, tallyId);
+                };
+                case(_){};
+            };
+
+
+            #ok()
+        };
+
+        public func addSubscriber(subscriber : Principal, tallyId : TallyId) : Result.Result<(), Text> {
+            let #ok(tally) = Utils.optToRes(getTally(tallyId)) else {return #err("Tally not found")};
+
+            let subTallies = Utils.getElseCreate(tallyModel.subscribers, phash, subscriber, List.nil());
+            Map.set(tallyModel.subscribers, phash, subscriber, List.push(tally, subTallies));
+            #ok()
+        };
+
+        public func deleteSubscriber(subscriber : Principal, tallyId : TallyId) : Result.Result<(), Text> {
+            switch(Map.get(tallyModel.subscribers, phash, subscriber)){
+                case(?tallies){
+                    let newTallies = List.filter(tallies, func(tally : TallyData) : Bool {
+                        return tally.id != tallyId;
+                    });
+                    Map.set(tallyModel.subscribers, phash, subscriber, newTallies);
+                    #ok()
+                };
+                case(_){
+                    return #err("No subscriber found");
+                };
+            }
+        };
+
+        public func updateTally(tallyId : TallyId, newTally : {topics : [TopicId]; neurons : [NeuronId] }) : Result.Result<(), Text> {
+            if(updateState == #Running){
+                return #err("Tallies are being updated, deleting could cause issues with global state");
+            };
+
+            let #ok(tally) = Utils.optToRes(getTally(tallyId)) else {return #err("Tally not found")};
+            let topicSet = Utils.arrayToSet(newTally.topics, i32hash);
+            let neuronSet = Utils.arrayToSet(newTally.neurons, thash);
+
+            tally.topics := topicSet;
+            tally.neurons := neuronSet;
+
+
+
+            #ok()
+        };
+
+        public func getSubscribersByTallyId(tallyId : TallyId) : [Principal]{
+            let buf = Buffer.Buffer<Principal>(20);
+            for((sub, tallies) in Map.entries(tallyModel.subscribers)){
+                for(tally in List.toIter(tallies)){
+                    if(tally.id == tallyId){
+                        buf.add(sub);
+                    };
+                };
+            };
+
+            Buffer.toArray(buf);
+        };
+
+        public func getTalliesByPrincipal(principal : Principal) : Result.Result<[TallyData], Text> {
+            switch(Map.get(tallyModel.subscribers, phash, principal)){
+                case(?tallies){
+                    #ok(List.toArray(tallies))
+                };
+                case(_){
+                    return #err("No tallies found")
+                };
+            };
+        };
 
         //TODO: change
         public func fetchProposalsAndUpdate() : async* (){
@@ -295,7 +417,7 @@ module {
                             case(#ok(neurons)) {
                                 for(neuron in neurons.neuron_infos.vals()){
                                     //process proposals whose ballots changes for this neuron if any
-                                    let proposalDelta = getProposalDeltaAndUpdateState(governanceId, neuron.0, neuron.1.recent_ballots, proposals, settledProposals);
+                                    let proposalDelta = getProposalDeltaAndUpdateState(governanceId, Nat64.toText(neuron.0), neuron.1.recent_ballots, proposals, settledProposals);
                                     if(List.size(proposalDelta.1) > 0){
                                         delta := List.push(proposalDelta, delta);
                                     };
@@ -343,7 +465,7 @@ module {
                 };
 
                 //
-                switch(Map.get(proposal.ballots, n64hash, neuronId)){
+                switch(Map.get(proposal.ballots, thash, neuronId)){
                     case(?vote) {
                         let newVote = NNSMappings.tryMapVoteFromInt(ballot.vote);
                         switch(newVote){
@@ -351,11 +473,11 @@ module {
                                 if(vote != mapVote(mappedBallotVote, proposal.isSettled)){
                                     proposalDelta := List.push(proposal.id, proposalDelta);
                                     let v = mapVote(mappedBallotVote, proposal.isSettled);
-                                    Map.set(proposal.ballots, n64hash, neuronId, v);
+                                    Map.set(proposal.ballots, thash, neuronId, v);
                                 };
                             };
                             case(#err(e)){
-                                logService.logError("Failed to map vote for proposal: " # Nat64.toText(proposal.id) # "for neuron: " # Nat64.toText(neuronId) # " error " # e, ?"[getProposalDeltaAndUpdateState]");
+                                logService.logError("Failed to map vote for proposal: " # Nat64.toText(proposal.id) # "for neuron: " # neuronId # " error " # e, ?"[getProposalDeltaAndUpdateState]");
                             };
                         };
                     };
@@ -364,11 +486,11 @@ module {
                         switch(vote){
                              case(#ok(mappedBallotVote)){
                                 let v = mapVote(mappedBallotVote, proposal.isSettled);
-                                Map.set(proposal.ballots, n64hash, neuronId, v);
+                                Map.set(proposal.ballots, thash, neuronId, v);
                                 proposalDelta := List.push(proposal.id, proposalDelta);
                              };
                              case(#err(e)){
-                                logService.logError("err Failed to map vote for proposal: " # Nat64.toText(proposal.id) # "for neuron: " # Nat64.toText(neuronId) # " error " # e, ?"[getProposalDeltaAndUpdateState]");
+                                logService.logError("err Failed to map vote for proposal: " # Nat64.toText(proposal.id) # "for neuron: " # neuronId # " error " # e, ?"[getProposalDeltaAndUpdateState]");
                              };
                         }
                     };
@@ -387,16 +509,16 @@ module {
                 };
                 
                 //TODO: what if more than 100 proposal have been created? intersect neuronBallots with proposals and check size.
-                switch(Map.get(proposal.ballots, n64hash, neuronId)){
+                switch(Map.get(proposal.ballots, thash, neuronId)){
                     case(?vote) {
                         if(vote == #Pending){
                             proposalDelta := List.push(proposal.id, proposalDelta);
-                            Map.set(proposal.ballots, n64hash, neuronId, #Abstained);
+                            Map.set(proposal.ballots, thash, neuronId, #Abstained);
                         };
                     };
                     case(_){
                         proposalDelta := List.push(proposal.id, proposalDelta);
-                        Map.set(proposal.ballots, n64hash, neuronId, #Abstained);
+                        Map.set(proposal.ballots, thash, neuronId, #Abstained);
                     };
                 };
             };
@@ -407,8 +529,8 @@ module {
                 if(not Map.has(neuron.topics, i32hash, proposal.topicId)){
                     continue l;
                 };
-                if(not Map.has(proposal.ballots, n64hash, neuronId)){
-                    Map.set(proposal.ballots, n64hash, neuronId, #Pending);
+                if(not Map.has(proposal.ballots, thash, neuronId)){
+                    Map.set(proposal.ballots, thash, neuronId, #Pending);
                     proposalDelta := List.push(proposal.id, proposalDelta);
                 };
             };
@@ -424,7 +546,7 @@ module {
                     continue l;
                 };
                 
-                switch(Map.get(neuronTallies, n64hash, neuron)){
+                switch(Map.get(neuronTallies, thash, neuron)){
                     case(?tallies){
                         var relatedProposals = List.nil<Proposal>();
                         for(tally in List.toIter(tallies)) {
@@ -485,7 +607,7 @@ module {
                     vote = #Pending;
                 };
 
-                switch(Map.get(proposal.ballots, n64hash, neuron)){
+                switch(Map.get(proposal.ballots, thash, neuron)){
                     case(?voteRecord){
                         neuronVotes.add({neuronVote with vote = voteRecord});
                         if(voteRecord == #Yes) {
@@ -576,7 +698,7 @@ module {
                return #err("governance ID not found");
             };
 
-            let #ok(neuron) = Result.fromOption(Map.get(neuronMap, n64hash, neuronId), "neuron not found")
+            let #ok(neuron) = Result.fromOption(Map.get(neuronMap, thash, neuronId), "neuron not found")
             else {
                 return #err("neuron ID not found");
             };
@@ -609,13 +731,25 @@ module {
         func getNeuronChunks(map : Map.Map<NeuronId, NeuronData>) : List.List<[Nat64]> {
             var tmp = List.nil<Nat64>();
             for(n in Map.keys(map)){
-                tmp := List.push(n, tmp);
+                switch(textToNat64(n)){
+                    case (?success){
+                        tmp := List.push(success, tmp);
+                    };
+                    case(_){};
+                };
             };
 
            return List.chunks(20, tmp) |>
                     List.map(_, func (l : List.List<Nat64>) : [Nat64] {
                         return List.toArray(l);
                     });
+        };
+
+        public func textToNat64(t : Text) : ?Nat64 {
+            switch (Nat.fromText(t)) {
+                case (null) { null };
+                case (?n) { ?Nat64.fromNat(n) };
+            };
         };
 
     };
