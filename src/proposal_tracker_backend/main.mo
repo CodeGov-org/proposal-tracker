@@ -31,7 +31,7 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
   stable let logs = LogService.initLogModel();
   stable var custodians = List.make<Principal>(caller);
 
-  let logService = LogService.LogServiceImpl(logs, 100, true);
+  let logService = LogService.LogServiceImpl(logs, 200, true);
   stable let trackerData = TR.init();
   let trackerRepository = TR.TrackerRepository(trackerData, logService);
   //TEST ONLY
@@ -46,7 +46,8 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
 
   system func postupgrade() {
     if(Option.isSome(tallyModel.timerId)){
-        tallyModel.timerId := ?Timer.recurringTimer<system>(#seconds(5* 60), func() : async () {
+        tallyModel.timerId := ?Timer.recurringTimer<system>(#seconds(Option.get(tallyModel.tickrateInSeconds, 5 * 60)), func() : async () {
+        logService.logInfo("Running timer", null);
         await* tallyService.fetchProposalsAndUpdate()
       });
     }
@@ -58,6 +59,17 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     };
 
     await tallyService.init(tickrateInSeconds);
+  };
+
+  public shared ({ caller }) func cancelTimer() : async Result.Result<(), Text>{
+    if (not G.isCustodian(caller, custodians)) {
+      return #err("Not authorized");
+    };
+    await tallyService.cancelTimer();
+  };
+
+  public func getTimerTickrate() : async ?Nat {
+    tallyModel.tickrateInSeconds
   };
 
    public shared ({ caller }) func addTally(args : TallyService.AddTallyArgs) : async Result.Result<TallyTypes.TallyId, Text>{
@@ -215,28 +227,28 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
    await* tallyService.fetchProposalsAndUpdate()
   };
 
-  public func testTerminateProposal(proposalId : Nat64) : async Result.Result<(), Text>{
-    fakeGovernanceService.terminateProposal(proposalId);
-  };
+  // public func testTerminateProposal(proposalId : Nat64) : async Result.Result<(), Text>{
+  //   fakeGovernanceService.terminateProposal(proposalId);
+  // };
 
   public func testFetchProposalsAndUpdate() : async (){
     await* tallyService.fetchProposalsAndUpdate();
   };
 
-  public func testAddMockPendingProposal(id : ?Nat64) : async Nat64{
-    switch(id){
-      case(?unwrapId){
-        fakeGovernanceService.addProposalWithId(unwrapId, 13, #Open);
-      };
-      case(_){
-        fakeGovernanceService.addProposal(13, #Open);
-      };
-    };
-  };
+  // public func testAddMockPendingProposal(id : ?Nat64) : async Nat64{
+  //   switch(id){
+  //     case(?unwrapId){
+  //       fakeGovernanceService.addProposalWithId(unwrapId, 13, #Open);
+  //     };
+  //     case(_){
+  //       fakeGovernanceService.addProposal(13, #Open);
+  //     };
+  //   };
+  // };
 
-  public func testGetMockPendingProposals() : async Result.Result<[NNSTypes.ProposalInfo], Text>{
-   await* fakeGovernanceService.getPendingProposals("asa");
-  };
+  // public func testGetMockPendingProposals() : async Result.Result<[NNSTypes.ProposalInfo], Text>{
+  //  await* fakeGovernanceService.getPendingProposals("asa");
+  // };
 
   // public func getNeuronWithId(id : TallyTypes.NeuronId) : async Result.Result<Nat64, Text>{
   //   switch(fakeGovernanceService.getNeuronWithId(id)){
@@ -254,16 +266,16 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     trackerService.getProposals(canisterId, after, topics);
   };
 
-  public func testGetMockProposal(id : Nat64) : async Bool{
-     switch(fakeGovernanceService.getProposalWithId(id)){
-      case(?e){
-        true
-      };
-      case(_){
-        false
-      };
-     }
-  };
+  // public func testGetMockProposal(id : Nat64) : async Bool{
+  //    switch(fakeGovernanceService.getProposalWithId(id)){
+  //     case(?e){
+  //       true
+  //     };
+  //     case(_){
+  //       false
+  //     };
+  //    }
+  // };
 
   public func testSetLowestActiveId(canisterId: Text, id : ?Nat64) : async Result.Result<(), Text> {
     let tc = Map.get(trackerData.trackedCanisters, thash, canisterId);
