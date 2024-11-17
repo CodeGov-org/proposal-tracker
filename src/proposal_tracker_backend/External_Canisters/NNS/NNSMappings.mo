@@ -1,4 +1,5 @@
 import Result "mo:base/Result";
+import Nat64 "mo:base/Nat64";
 module {
 
     public let NNSFunctions : [(Int32, Text, ?Text)] = [
@@ -55,27 +56,46 @@ module {
         (51, "DeployHostosToSomeNodes", null)
     ];
 
-   public type NNSTopic = {
-        #Unspecified;
-        #ManageNeuron;
-        #ExchangeRate;
-        #NetworkEconomics;
-        #Governance;
-        #NodeAdmin;
-        #ParticipantManagement;
-        #SubnetManagement;
-        #NetworkCanisterManagement;
-        #Kyc;
-        #NodeProviderRewards;
-        // @deprecated
-        #SnsDecentralizationSale;
-        #SubnetReplicaVersionManagement;
-        #ReplicaVersionManagement;
-        #SnsAndCommunityFund;
-        #ApiBoundaryNodeManagement;
-        #SubnetRental;
-    };
+//    public type NNSTopic = {
+//         #Unspecified;
+//         #ManageNeuron;
+//         #ExchangeRate;
+//         #NetworkEconomics;
+//         #Governance;
+//         #NodeAdmin;
+//         #ParticipantManagement;
+//         #SubnetManagement;
+//         #NetworkCanisterManagement;
+//         #Kyc;
+//         #NodeProviderRewards;
+//         // @deprecated
+//         #SnsDecentralizationSale;
+//         #SubnetReplicaVersionManagement;
+//         #ReplicaVersionManagement;
+//         #SnsAndCommunityFund;
+//         #ApiBoundaryNodeManagement;
+//         #SubnetRental;
+//     };
 
+    public let NNSTopics : [{id : Nat64; name : Text;description : ?Text;}] = [
+        {id : Nat64 = 1; description = ?"Unspecified"; name = "Unspecified"},
+        {id : Nat64 = 2; description = ?"Neuron Management"; name = "ManageNeuron"},
+        {id : Nat64 = 3; description = ?"Exchange Rate"; name = "ExchangeRate"},
+        {id : Nat64 = 4; description = ?"Network Economics"; name = "NetworkEconomics"},
+        {id : Nat64 = 5; description = ?"Governance"; name = "Governance"},
+        {id : Nat64 = 6; description = ?"Node Admin"; name = "NodeAdmin"},
+        {id : Nat64 = 7; description = ?"Participant Management"; name = "ParticipantManagement"},
+        {id : Nat64 = 8; description = ?"Subnet Management"; name = "SubnetManagement"},
+        {id : Nat64 = 9; description = ?"System Canister Management"; name = "NetworkCanisterManagement"},
+        {id : Nat64 = 10; description = ?"KYC"; name = "Kyc"},
+        {id : Nat64 = 11; description = ?"Node Provider Rewards"; name = "NodeProviderRewards"},
+        {id : Nat64 = 12; description = ?"SNS Decentralization Swap"; name = "SnsDecentralizationSale"},
+        {id : Nat64 = 13; description = ?"IC OS Version Election"; name = "ReplicaVersionManagement"},
+        {id : Nat64 = 14; description = ?"IC OS Version Deployment"; name = "SubnetReplicaVersionManagement"},
+        {id : Nat64 = 15; description = ?"SNS & Neurons' Fund"; name = "SnsAndCommunityFund"},
+        {id : Nat64 = 16; description = ?"API Boundary Node Management"; name = "ApiBoundaryNodeManagement"},
+        {id : Nat64 = 17; description = ?"Subnet Rental"; name = "SubnetRental"}
+    ];
    public type NNSVote = {
         #Unspecified; //0
         #Yes; //1

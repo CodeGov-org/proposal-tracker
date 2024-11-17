@@ -23,6 +23,8 @@ module{
             known_neuron_data : ?NNSTypes.KnownNeuronData;
             voting_power : Nat64;
             age_seconds : Nat64;
+            voting_power_refreshed_timestamp_seconds : ?Nat64;
+            visibility : ?Int32;
         };
 
         type Proposal = {
@@ -43,6 +45,7 @@ module{
             proposal : ?NNSTypes.Proposal;
             proposer : ?NNSTypes.NeuronId;
             executed_timestamp_seconds : Nat64;
+            total_potential_voting_power : ?Nat64;
         };
 
     public class FakeGovernanceService(logService : LogTypes.LogService) {
@@ -122,11 +125,8 @@ module{
             #ok({name = ?"fake governance"; description = ?"fake governance description"});
         };
         
-        public func getGovernanceFunctions(_ : Text) : async* Result.Result<NNSTypes.ListNervousSystemFunctionsResponse, Text>{
-            #ok({
-                reserved_ids = [1,2,3,4,5,6,7,8,9,10,11,12,13];
-                functions = [];
-            });
+        public func getGovernanceFunctions(_ : Text) : async* Result.Result<[{id : Nat64;name : Text;description : ?Text;}], Text>{
+            #ok(NNSMappings.NNSTopics);
         };
 
         public func addNeuronWithId(neuronId : Nat64) : Nat64 {
@@ -158,6 +158,8 @@ module{
                 stake_e8s = 0;
                 state = 0;
                 voting_power = 0;
+                voting_power_refreshed_timestamp_seconds = null;
+                visibility = ?1;
             };
 
             neurons := List.push((neuronId, neuron), neurons);
@@ -203,6 +205,7 @@ module{
                 };
                 proposer = ?{id = lastProposalId};
                 executed_timestamp_seconds = 0;
+                total_potential_voting_power = null;
 
             };
 

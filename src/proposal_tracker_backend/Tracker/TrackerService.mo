@@ -5,7 +5,7 @@ import Time "mo:base/Time";
 import Array "mo:base/Array";
 import Result "mo:base/Result";
 import Timer "mo:base/Timer";
-import G "../Governance/GovernanceTypes";
+import G "../External_Canisters/NNS/NNSTypes";
 import PT "../Proposal/ProposalTypes";
 import PM "../Proposal/ProposalMappings";
 import TT "./TrackerTypes";
@@ -128,15 +128,15 @@ module {
             let res = await* governanceService.getMetadata(governancePrincipal);
             switch(res){
                 case(#ok(metadata)){
-                    switch(await* proposalService.getValidTopicIds(governancePrincipal)){
+                    switch(await* governanceService.getGovernanceFunctions(governancePrincipal)){
                         case(#ok(validTopics)){
                             repository.addGovernance(governancePrincipal, metadata.name, metadata.description, filterValidTopics(validTopics, topicStrategy));
                         };
-                        case(#err(err)){ return #err("Error fetching valid topics:" #err); }
+                        case(#err(err)){ return #err("[addGovernance] Error fetching valid topics:" #err); }
                     };
                     
                 };
-                case(#err(err)){ return #err("Error fetching metadata:" #err); }
+                case(#err(err)){ return #err("[addGovernance] Error fetching metadata:" #err); }
             };
         };
 
@@ -146,14 +146,6 @@ module {
 
         func performCleanupStrategy(governanceData : TT.GovernanceData) : () {
             switch(args.cleanupStrategy){
-                case(#DeleteAfterExecution){
-                    for(p in LinkedList.vals(governanceData.proposals)){
-                        if(not Map.has(governanceData.activeProposalsSet, n64hash, p.id)){
-                            // proposal has executed, so it can be removed
-                            ignore repository.deleteProposal(governanceData, p.id);
-                        }
-                    }
-                };
                 case(#DeleteAfterTime(timeframe)){
                     let currentTime = Time.now();
                     for(p in LinkedList.vals(governanceData.proposals)){
@@ -175,40 +167,48 @@ module {
                         }
                     }
                 };
-                case(#DeleteAfterVotingPeriodEnds){
-                    for(p in LinkedList.vals(governanceData.proposals)){
-                        if(p.rewardStatus ==  #Settled){
-                            ignore repository.deleteProposal(governanceData, p.id);
-                        }
-                    }
-                };
+                // case(#DeleteAfterExecution){
+                //     for(p in LinkedList.vals(governanceData.proposals)){
+                //         if(not Map.has(governanceData.activeProposalsSet, n64hash, p.id)){
+                //             // proposal has executed, so it can be removed
+                //             ignore repository.deleteProposal(governanceData, p.id);
+                //         }
+                //     }
+                // };
+                // case(#DeleteAfterVotingPeriodEnds){
+                //     for(p in LinkedList.vals(governanceData.proposals)){
+                //         if(p.rewardStatus ==  #Settled){
+                //             ignore repository.deleteProposal(governanceData, p.id);
+                //         }
+                //     }
+                // };
             }
         };
 
         
-        func filterValidTopics(topics : [(Int32, Text, ?Text)], topicStrategy : TT.TopicStrategy) : TT.Topics {
+        func filterValidTopics(topics : [{id : Nat64; name : Text;description : ?Text;}], topicStrategy : TT.TopicStrategy) : TT.Topics {
             let topicMap : TT.Topics = Map.new();
             switch(topicStrategy){
                 case(#All){
                     for(t in Array.vals(topics)){
-                        Map.set(topicMap, i32hash, t.0, {name = t.1; description = t.2});
+                        Map.set(topicMap, i32hash, Int32.fromNat32(Nat64.toNat32(t.id)), {name = t.name; description = t.description});
                     }
                 };
                 case(#Include(ids)){
                     for(t in Array.vals(topics)){
                         if(Option.isSome(Array.find(ids, func (x : Int32) : Bool {
-                            x == t.0
+                            x == Int32.fromNat32(Nat64.toNat32(t.id))
                         }))){
-                            Map.set(topicMap, i32hash, t.0, {name = t.1; description = t.2});
+                            Map.set(topicMap, i32hash, Int32.fromNat32(Nat64.toNat32(t.id)), {name = t.name; description = t.description});
                         };
                     };
                 };
                 case(#Exclude(ids)){
                     for(t in Array.vals(topics)){
                         if(Option.isNull(Array.find(ids, func (x : Int32) : Bool {
-                            x == t.0
+                            x == Int32.fromNat32(Nat64.toNat32(t.id))
                         }))){
-                        Map.set(topicMap, i32hash, t.0, {name = t.1; description = t.2});
+                        Map.set(topicMap, i32hash, Int32.fromNat32(Nat64.toNat32(t.id)), {name = t.name; description = t.description});
                         };
                     };
                 };
