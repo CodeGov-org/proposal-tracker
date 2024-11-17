@@ -132,11 +132,11 @@ module {
                         case(#ok(validTopics)){
                             repository.addGovernance(governancePrincipal, metadata.name, metadata.description, filterValidTopics(validTopics, topicStrategy));
                         };
-                        case(#err(err)){ return #err("Error fetching valid topics:" #err); }
+                        case(#err(err)){ return #err("[addGovernance] Error fetching valid topics:" #err); }
                     };
                     
                 };
-                case(#err(err)){ return #err("Error fetching metadata:" #err); }
+                case(#err(err)){ return #err("[addGovernance] Error fetching metadata:" #err); }
             };
         };
 
