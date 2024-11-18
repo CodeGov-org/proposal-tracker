@@ -1,20 +1,24 @@
 {
   "dependencies": {
     "@dfinity/agent": "latest",
+    "@dfinity/auth-client": "latest",
     "@dfinity/candid": "latest",
     "@dfinity/principal": "latest",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@heroicons/react": "latest",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "latest",
+    "autoprefixer": "latest",
     "dotenv": "latest",
     "jsdom": "latest",
-    "sass": "latest",
+    "postcss": "latest",
+    "tailwindcss": "latest",
     "typescript": "latest",
     "vite": "latest",
     "vite-plugin-environment": "latest",
