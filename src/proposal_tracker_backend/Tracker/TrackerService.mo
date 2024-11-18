@@ -191,24 +191,24 @@ module {
             switch(topicStrategy){
                 case(#All){
                     for(t in Array.vals(topics)){
-                        Map.set(topicMap, i32hash, Int32.fromNat32(Nat64.toNat32(t.id)), {name = t.name; description = t.description});
+                        Map.set(topicMap, n64hash, t.id, {name = t.name; description = t.description});
                     }
                 };
                 case(#Include(ids)){
                     for(t in Array.vals(topics)){
-                        if(Option.isSome(Array.find(ids, func (x : Int32) : Bool {
-                            x == Int32.fromNat32(Nat64.toNat32(t.id))
+                        if(Option.isSome(Array.find(ids, func (x : PT.TopicId) : Bool {
+                            x == t.id
                         }))){
-                            Map.set(topicMap, i32hash, Int32.fromNat32(Nat64.toNat32(t.id)), {name = t.name; description = t.description});
+                            Map.set(topicMap, n64hash, t.id, {name = t.name; description = t.description});
                         };
                     };
                 };
                 case(#Exclude(ids)){
                     for(t in Array.vals(topics)){
-                        if(Option.isNull(Array.find(ids, func (x : Int32) : Bool {
-                            x == Int32.fromNat32(Nat64.toNat32(t.id))
+                        if(Option.isNull(Array.find(ids, func (x : PT.TopicId) : Bool {
+                            x == t.id
                         }))){
-                        Map.set(topicMap, i32hash, Int32.fromNat32(Nat64.toNat32(t.id)), {name = t.name; description = t.description});
+                        Map.set(topicMap, n64hash, t.id, {name = t.name; description = t.description});
                         };
                     };
                 };

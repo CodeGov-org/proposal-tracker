@@ -26,7 +26,7 @@ module {
     public type NeuronId = Text;
     public type TallyId = Text;
     public type ProposalId = Nat64;
-    public type TopicId = Int32;
+    public type TopicId = Nat64;
 
 public type Vote = {
     #Yes;

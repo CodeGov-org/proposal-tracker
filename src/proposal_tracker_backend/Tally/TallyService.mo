@@ -153,7 +153,7 @@ module {
 
             let tallyId : Text = Nat.toText(tallyModel.lastId + 1);
             tallyModel.lastId := tallyModel.lastId + 1;
-            let topicSet = Utils.arrayToSet(args.topics, i32hash);
+            let topicSet = Utils.arrayToSet(args.topics, n64hash);
             let tally : TallyData = {id = tallyId; alias = args.alias; governanceCanister = governanceId; var topics = topicSet; var neurons = Utils.arrayToSet(args.neurons, thash); ballots = Map.new<ProposalId, NeuronVote>()};
             // let tallyMap = Utils.getElseCreate(tallyModel.tallies, thash, governanceId, Map.new<TallyId, TallyData>());
             // Map.set(tallyMap, thash, tallyId, tally);
@@ -175,12 +175,12 @@ module {
                 switch(Map.get(neuronMap, thash, neuronId)){
                     case(?neuron) {
                         for(topic in args.topics.vals()){
-                            switch(Map.get(neuron.topics, i32hash, topic)){
+                            switch(Map.get(neuron.topics, n64hash, topic)){
                                 case(?topicData){
-                                     Map.set(neuron.topics, i32hash, topic, topicData + 1);
+                                     Map.set(neuron.topics, n64hash, topic, topicData + 1);
                                 };
                                 case(_){
-                                    Map.set(neuron.topics, i32hash, topic, 1);
+                                    Map.set(neuron.topics, n64hash, topic, 1);
                                 };
                             };
                         };
@@ -188,7 +188,7 @@ module {
                     case(_){
                         let topicMap = Map.new<TopicId, Nat>();
                         for(topic in args.topics.vals()){
-                            Map.set(topicMap, i32hash, topic, 1);
+                            Map.set(topicMap, n64hash, topic, 1);
                         };
                         Map.set(neuronMap, thash, neuronId, {id = neuronId; topics = topicMap;});
                     };
@@ -228,13 +228,13 @@ module {
                     switch(Map.get(neuronMap, thash, neuronId)){
                         case(?neuron) {
                             for(removedTopic in Map.keys(removedTopics)){
-                                switch(Map.get(neuron.topics, i32hash, removedTopic)){
+                                switch(Map.get(neuron.topics, n64hash, removedTopic)){
                                     case(?topicData){
                                         let newCount : Nat = topicData - 1;
                                         if(newCount == 0){
-                                            Map.delete(neuron.topics, i32hash, removedTopic);
+                                            Map.delete(neuron.topics, n64hash, removedTopic);
                                         } else {
-                                            Map.set(neuron.topics, i32hash, removedTopic, newCount);
+                                            Map.set(neuron.topics, n64hash, removedTopic, newCount);
                                         };
                                     };
                                     case(_){};
@@ -242,13 +242,13 @@ module {
                             };
 
                             for(addedTopic in Map.keys(addedTopics)){
-                                switch(Map.get(neuron.topics, i32hash, addedTopic)){
+                                switch(Map.get(neuron.topics, n64hash, addedTopic)){
                                     case(?topicData){
                                         let newCount : Nat = topicData + 1;
-                                        Map.set(neuron.topics, i32hash, addedTopic, newCount);
+                                        Map.set(neuron.topics, n64hash, addedTopic, newCount);
                                     };
                                     case(_){
-                                        Map.set(neuron.topics, i32hash, addedTopic, 1);
+                                        Map.set(neuron.topics, n64hash, addedTopic, 1);
                                     };
                                 };
                             }
@@ -315,21 +315,21 @@ module {
             };
 
             let #ok(tally) = Utils.optToRes(getTally(tallyId)) else {return #err("Tally not found")};
-            let topicSet = Utils.arrayToSet(newTally.topics, i32hash);
+            let topicSet = Utils.arrayToSet(newTally.topics, n64hash);
             let neuronSet = Utils.arrayToSet(newTally.neurons, thash);
 
             let removedTopics = Map.new<TopicId, ()>();
             let addedTopics = Map.new<TopicId, ()>();
 
             for(topic in Map.keys(tally.topics)){
-                if(not Map.has(topicSet, i32hash, topic)){
-                    Map.set(removedTopics, i32hash, topic, ());
+                if(not Map.has(topicSet, n64hash, topic)){
+                    Map.set(removedTopics, n64hash, topic, ());
                 };
             };
 
             for(topic in Map.keys(topicSet)){
-                if(not Map.has(tally.topics, i32hash, topic)){
-                    Map.set(addedTopics, i32hash, topic, ());
+                if(not Map.has(tally.topics, n64hash, topic)){
+                    Map.set(addedTopics, n64hash, topic, ());
                 };
             };
 
@@ -371,12 +371,12 @@ module {
                     switch(Map.get(neuronMap, thash, neuronId)){
                         case(?neuron) {
                             for(topic in newTally.topics.vals()){
-                                switch(Map.get(neuron.topics, i32hash, topic)){
+                                switch(Map.get(neuron.topics, n64hash, topic)){
                                     case(?topicData){
-                                        Map.set(neuron.topics, i32hash, topic, topicData + 1);
+                                        Map.set(neuron.topics, n64hash, topic, topicData + 1);
                                     };
                                     case(_){
-                                        Map.set(neuron.topics, i32hash, topic, 1);
+                                        Map.set(neuron.topics, n64hash, topic, 1);
                                     };
                                 };
                             };
@@ -384,7 +384,7 @@ module {
                         case(_){
                             let topicMap = Map.new<TopicId, Nat>();
                             for(topic in newTally.topics.vals()){
-                                Map.set(topicMap, i32hash, topic, 1);
+                                Map.set(topicMap, n64hash, topic, 1);
                             };
                             Map.set(neuronMap, thash, neuronId, {id = neuronId; topics = topicMap;});
                         };
@@ -595,7 +595,7 @@ module {
                 };
 
                 //if neuron doesnt follow this topic on any tally then skip
-                if(not Map.has(neuron.topics, i32hash, proposal.topicId)){
+                if(not Map.has(neuron.topics, n64hash, proposal.topicId)){
                     continue l;
                 };
 
@@ -639,7 +639,7 @@ module {
                     continue l;
                 };
 
-                if(not Map.has(neuron.topics, i32hash, proposal.topicId)){
+                if(not Map.has(neuron.topics, n64hash, proposal.topicId)){
                     continue l;
                 };
                 
@@ -661,7 +661,7 @@ module {
             //init ballot to pending
             label l for (proposal in Map.vals(proposals)){
                 //if neuron doesnt follow this topic on any tally then skip
-                if(not Map.has(neuron.topics, i32hash, proposal.topicId)){
+                if(not Map.has(neuron.topics, n64hash, proposal.topicId)){
                     continue l;
                 };
                 if(not Map.has(proposal.ballots, thash, neuronId)){
@@ -690,7 +690,7 @@ module {
                                 else {
                                     continue l;
                                 };
-                                if (Map.has(tally.topics, i32hash, proposal.topicId)) {
+                                if (Map.has(tally.topics, n64hash, proposal.topicId)) {
                                     //logService.logInfo("Tally ID: " # tally.id # " is affected cause proposal: " # Nat64.toText(proposal.id), ?"[processAffectedTallies]");
                                     relatedProposals := List.push(proposal, relatedProposals);
                                 };

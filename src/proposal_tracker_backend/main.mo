@@ -61,6 +61,11 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     await tallyService.init(tickrateInSeconds);
   };
 
+
+  public func testNotifySub() : async(){
+    await* tallyService.notifySubscriber("7g2oq-raaaa-aaaap-qb7sq-cai", []);
+  };
+
   public shared ({ caller }) func cancelTimer() : async Result.Result<(), Text>{
     if (not G.isCustodian(caller, custodians)) {
       return #err("Not authorized");
@@ -83,7 +88,7 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
        switch(tallyService.getTally(tallyId)){
         case(?t){
           let neuronBuffer = Buffer.Buffer<TallyTypes.NeuronId>(0);
-          let topicBufer = Buffer.Buffer<Int32>(0);
+          let topicBufer = Buffer.Buffer<PT.TopicId>(0);
           for(topic in Map.keys(t.topics)){
             topicBufer.add(topic);
           };
@@ -147,6 +152,25 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
 
   
   // TEST ENDPOINTS
+  public func testAddTally1() : async  Result.Result<TallyTypes.TallyId, Text>{
+    await* tallyService.addTally({
+      governanceId = "rrkah-fqaaa-aaaaa-aaaaq-cai";
+      alias = ?"Test Tally 1";
+      topics = [12];
+      neurons = ["14998600334911702241", "16326129975418039085"];
+      subscriber = ?Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
+    });
+  };
+
+  public func testAddTally2() : async  Result.Result<TallyTypes.TallyId, Text>{
+    await* tallyService.addTally({
+      governanceId = "rrkah-fqaaa-aaaaa-aaaaq-cai";
+      alias = ?"Codegov ICOS";
+      topics = [13];
+      neurons = ["14998600334911702241", "16326129975418039085", "12979846186887799326", "16405079610149095765", "6542438359604605534", "13829927922327991744"];
+      subscriber = ?Principal.fromText("7g2oq-raaaa-aaaap-qb7sq-cai");
+    });
+  };
 
   // public func testApproveProposal() : async (){
   //   let proposalId = fakeGovernanceService.addProposal(13, #Open);

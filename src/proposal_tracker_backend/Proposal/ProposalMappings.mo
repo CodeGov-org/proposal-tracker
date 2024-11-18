@@ -80,9 +80,9 @@ module{
         #ok({
             id = id;
             title = title;
-            topicId = nnsProposal.topic;
+            topicId = Int64.toNat64(Int64.fromInt32(nnsProposal.topic));
             description = null;
-            proposer = proposer.id;
+            proposer = Nat64.toText(proposer.id);
             timestamp = Int64.toNat64(Int64.fromInt(Time.now()));
             var deadlineTimestampSeconds = nnsProposal.deadline_timestamp_seconds;
             proposalTimestampSeconds = nnsProposal.proposal_timestamp_seconds;

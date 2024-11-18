@@ -74,6 +74,9 @@ module {
         };
 
         public func listNeurons(governanceId : Text, args :  NNSTypes.ListNeurons) : async* Result.Result<NNSTypes.ListNeuronsResponse, Text>{
+            if (governanceId != NNS_GOVERNANCE_ID){
+               return #err("Not supported for SNS");
+            };
             let gc : NNSTypes.NNSCanister = actor(governanceId);
             try{
                 let res = await gc.list_neurons(args);

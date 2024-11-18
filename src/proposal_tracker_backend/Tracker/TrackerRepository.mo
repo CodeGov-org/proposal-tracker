@@ -79,35 +79,35 @@ module {
             trackerModel.timerId
         };
 
-        func filterValidTopics(validTopics : TT.Topics, topicStrategy : TT.TopicStrategy) : Map.Map<Int32,()> {
-            let topicSet : Map.Map<Int32,()> = Map.new();
+        func filterValidTopics(validTopics : TT.Topics, topicStrategy : TT.TopicStrategy) : Map.Map<PT.TopicId,()> {
+            let topicSet : Map.Map<PT.TopicId,()> = Map.new();
             switch(topicStrategy){
                 case(#All){
                     for(k in Map.keys(validTopics)){
-                        Map.set(topicSet, i32hash, k, ());
+                        Map.set(topicSet, n64hash, k, ());
                     }
                 };
                 case(#Include(ids)){
                     if(Array.size(ids) == 0){
                         for(k in Map.keys(validTopics)){
-                            Map.set(topicSet, i32hash, k, ());
+                            Map.set(topicSet, n64hash, k, ());
                         };
                     };
                     for(id in Array.vals(ids)){
-                        if(Map.has(validTopics, i32hash, id)){
-                            Map.set(topicSet, i32hash, id, ());
+                        if(Map.has(validTopics, n64hash, id)){
+                            Map.set(topicSet, n64hash, id, ());
                         }
                     }
                 };
                 case(#Exclude(ids)){
                     if(Array.size(ids) == 0){
                         for(k in Map.keys(validTopics)){
-                            Map.set(topicSet, i32hash, k, ());
+                            Map.set(topicSet, n64hash, k, ());
                         };
                     };
                     for(id in Array.vals(ids)){
-                        if(not Map.has(validTopics, i32hash, id)){
-                            Map.set(topicSet, i32hash, id, ());
+                        if(not Map.has(validTopics, n64hash, id)){
+                            Map.set(topicSet, n64hash, id, ());
                         }
                     }
                 };
@@ -162,7 +162,7 @@ module {
                                 switch(current){
                                     case (?e) {
                                         // only add if the proposal topic is in the list of topics
-                                        if(Map.has(topicSet, i32hash, e.data.topicId)){
+                                        if(Map.has(topicSet, n64hash, e.data.topicId)){
                                             buf.add(PM.proposalToAPI(e.data));
                                         };
                                         current := e._next;

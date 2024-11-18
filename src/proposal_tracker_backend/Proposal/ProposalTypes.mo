@@ -22,6 +22,8 @@ module {
 //     executed_timestamp_seconds : Nat64;
 //   };
 
+    public type TopicId = Nat64;
+
     public type ProposalRewardStatus = {
         #Unknown; //0
 
@@ -69,10 +71,10 @@ module {
     };
     public type Proposal = {
         id : ProposalId;
-        topicId : Int32;
+        topicId : Nat64;
         title : Text;
         description : ?Text;
-        proposer : Nat64;
+        proposer : Text;
         timestamp : Nat64;
         var rewardStatus : ProposalRewardStatus;
         var status : ProposalStatus;
@@ -83,10 +85,10 @@ module {
     //add type
     public type ProposalAPI = {
         id : ProposalId;
-        topicId : Int32;
+        topicId : Nat64;
         title : Text;
         description : ?Text;
-        proposer : Nat64;
+        proposer : Text;
         timestamp : Nat64;
         status : ProposalStatus;
         rewardStatus : ProposalRewardStatus;

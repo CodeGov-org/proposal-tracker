@@ -41,26 +41,26 @@ module {
         var timerId : ?Nat;
     };
 
-    type ProposalMapByTopic = Map.Map<Int32, LinkedList.LinkedList<PT.Proposal>>; //sorted list of proposals indexed by topic id
+    type ProposalMapByTopic = Map.Map<PT.TopicId, LinkedList.LinkedList<PT.Proposal>>; //sorted list of proposals indexed by topic id
 
     //internal representation of topics, optimized for lookups
-    public type Topics = Map.Map<Int32, {
+    public type Topics = Map.Map<PT.TopicId, {
             name : Text;
             description : ?Text;
         }>;
 
     public type TopicStrategy = {
             #All;
-            #Include : [Int32];
-            #Exclude : [Int32];
+            #Include : [PT.TopicId];
+            #Exclude : [PT.TopicId];
     };
 
     public type GovernanceSettings = {
-        var includeRewardStatus :  [Int32];
+        var includeRewardStatus :  [PT.TopicId];
         var omitLargeFields : ?Bool;
         var topicStrategy : TopicStrategy;
         var includeAllManageNeuronProposals : ?Bool;
-        var includeStatus : [Int32];
+        var includeStatus : [PT.TopicId];
     };
 
     public type GovernanceData = {
