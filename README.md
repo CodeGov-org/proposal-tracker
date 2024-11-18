@@ -53,3 +53,30 @@ In order to periodically receive tally updates, it is required to initiate a tim
   ```bash
   dfx canister call proposal_tracker_backend initTimer '(opt 60)'
   ```
+
+### Clearing timer
+Once initiated the timer is preserved across upgrades, if you wish to clear it for maintenance purposes or to update the interval, the following command can be used:
+  ```bash
+  dfx canister call proposal_tracker_backend clearTimer
+  ```
+
+### Getting tally information
+To get the basic information about a tally, such as its alias, neurons and followed topics, the following command can be used:
+  ```bash
+  dfx canister call proposal_tracker_backend getTally '("your_tally_id")'
+  ```
+### Deleting a tally
+To delete a tally, the following command can be used:
+  ```bash
+  dfx canister call proposal_tracker_backend deleteTally '("your_tally_id")'
+  ```
+### Updating a tally
+To update a tally, the following command can be used:
+  ```bash
+  dfx canister call proposal_tracker_backend updateTally '("your_tally_id", 
+  record {
+    topics = vec { 1; 2; 3 };
+    neurons = vec { "neuron1"; "neuron2" }
+  }
+)'
+  ```
