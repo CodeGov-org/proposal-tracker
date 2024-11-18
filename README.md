@@ -28,7 +28,7 @@ npm run generate
 ```
 
 ## Usage
-Once the canister has been deployed on mainnet, it can be interacted with either by using DFX or Candid UI, if you wish to use the latter, it is first required that the principal si added to the admin list, otherwise management endpoints will not be available.
+Once the canister has been deployed on mainnet, it can be interacted with either by using DFX or [Candid UI](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/), if you wish to use the latter, it is first required that the principal si added to the admin list, otherwise management endpoints will not be available.
 To do so, use the following command:
 
   ```bash
