@@ -203,12 +203,15 @@ module {
             // };
 
             //occasionally a proposal may get here already executed, if so dont add to active list
-            switch(proposal.status){
-                case(#Executed(v)){};
-                case(_){
-                    ignore Map.add(governanceData.activeProposalsSet, n64hash, proposal.id, ());
-                };
+            if(not isProposalSettled(proposal)){
+                ignore Map.add(governanceData.activeProposalsSet, n64hash, proposal.id, ());
             };
+            // switch(proposal.status){
+            //     case(#Executed(v)){};
+            //     case(_){
+            //         ignore Map.add(governanceData.activeProposalsSet, n64hash, proposal.id, ());
+            //     };
+            // };
 
 
             switch(governanceData.lastProposalId){
@@ -241,40 +244,53 @@ module {
                 case (?p) {
                     p.data.status := proposal.status;
                     p.data.deadlineTimestampSeconds := proposal.deadlineTimestampSeconds;
+                    p.data.rewardStatus := proposal.rewardStatus;
                 };
                 case(_) {
                     logService.logError("Proposal not found", ?"[TrackerRepository::updateProposal]");
                 }
             };
 
-            //once the proposal is executed, remove it from active list and update the lowest active proposal id
-            switch(proposal.status){
-                case(#Executed(e)){
-                    ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
+            //once the proposal no longer accepts vptes, remove it from active list and update the lowest active proposal id
+            if(isProposalSettled(proposal)){
+                ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
 
-                    var lowestId : ?PT.ProposalId = null;
-                    for (id in Map.keys(governanceData.proposalsById)) {
-                        //on first iter lowestId is null, so this will always be true
-                        if(id < Option.get(lowestId, id + 1)){
-                            lowestId := ?id;
-                        };
+                var lowestId : ?PT.ProposalId = null;
+                for (id in Map.keys(governanceData.proposalsById)) {
+                    //on first iter lowestId is null, so if the proposal is still in active set this will always be true
+                    if(id < Option.get(lowestId, id + 1) and Map.has(governanceData.activeProposalsSet, n64hash, id)){
+                        lowestId := ?id;
                     };
-                    governanceData.lowestActiveProposalId := lowestId;
                 };
-                case(#Failed){
-                    ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
-
-                    var lowestId : ?PT.ProposalId = null;
-                    for (id in Map.keys(governanceData.proposalsById)) {
-                        //on first iter lowestId is null, so this will always be true
-                        if(id < Option.get(lowestId, id + 1)){
-                            lowestId := ?id;
-                        };
-                    };
-                    governanceData.lowestActiveProposalId := lowestId;
-                };
-                case(_){};
+                governanceData.lowestActiveProposalId := lowestId;
             };
+            // switch(proposal.status){
+            //     case(#Executed(e)){
+            //         ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
+
+            //         var lowestId : ?PT.ProposalId = null;
+            //         for (id in Map.keys(governanceData.proposalsById)) {
+            //             //on first iter lowestId is null, so this will always be true
+            //             if(id < Option.get(lowestId, id + 1)){
+            //                 lowestId := ?id;
+            //             };
+            //         };
+            //         governanceData.lowestActiveProposalId := lowestId;
+            //     };
+            //     case(#Failed){
+            //         ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
+
+            //         var lowestId : ?PT.ProposalId = null;
+            //         for (id in Map.keys(governanceData.proposalsById)) {
+            //             //on first iter lowestId is null, so this will always be true
+            //             if(id < Option.get(lowestId, id + 1)){
+            //                 lowestId := ?id;
+            //             };
+            //         };
+            //         governanceData.lowestActiveProposalId := lowestId;
+            //     };
+            //     case(_){};
+            // };
         };
 
         public func deleteProposal(governanceData : TT.GovernanceData, id : PT.ProposalId) : Result.Result<(), Text> {
@@ -344,6 +360,18 @@ module {
             }else{
                 return #equal;
             };
+        };
+
+        func isProposalSettled(proposal : PT.Proposal) : Bool {
+            logService.logInfo("Proposal settled: " # Nat64.toText(proposal.id), ?"[TrackerRepository:isProposalSettled]");
+            switch(proposal.rewardStatus) {
+                case(#ReadyToSettle or #Settled){
+                    return true;
+                };
+                case(_){
+                    return false;
+                };
+            }
         };
 
     };
