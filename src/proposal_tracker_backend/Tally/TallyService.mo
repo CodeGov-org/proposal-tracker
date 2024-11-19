@@ -486,14 +486,15 @@ module {
             var settledProposals = List.nil<Proposal>();
             //add new proposals to the map
             for(proposal in Array.vals(newProposals)) {
-                let isSettled = isProposalSettled(proposal);
+                let _isSettled = isProposalSettled(proposal);
                 let settledTimestamp : ?Time.Time = null;
-                if(isSettled) {
+                if(_isSettled) {
                     let settledTimestamp = ?Time.now();
                 };
-                let p = {id = proposal.id; isSettled = isSettled; settledTimestamp = settledTimestamp; topicId = proposal.topicId; ballots = Map.new<NeuronId, NeuronVote>()};
+                let p = {id = proposal.id; isSettled = _isSettled; settledTimestamp = settledTimestamp; topicId = proposal.topicId; ballots = Map.new<NeuronId, NeuronVote>()};
                 Map.set(proposalMap, n64hash, proposal.id,  p);
-                if(isSettled) {
+                if(_isSettled) {
+                    logService.logInfo("Proposal settled: " # Nat64.toText(proposal.id), ?"[update]");
                     settledProposals := List.push(p, settledProposals);
                 };
             };
@@ -501,6 +502,7 @@ module {
             //update settled proposals
             for(proposal in Array.vals(changedProposals)) {
                 if(isProposalSettled(proposal)) {
+                    logService.logInfo("Proposal settled: " # Nat64.toText(proposal.id), ?"[update]");
                     switch(Map.get(proposalMap, n64hash, proposal.id)){
                         case(?p){
                             Map.set(proposalMap, n64hash, proposal.id, {p with isSettled = true; settledTimestamp = ?Time.now()});
