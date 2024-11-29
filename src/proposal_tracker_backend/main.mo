@@ -247,16 +247,25 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
   //   };
   // };
 
-  public func testRunUpdate() : async (){
-   await* tallyService.fetchProposalsAndUpdate()
+  public shared({caller}) func testRunUpdate() : async Result.Result<(), Text>{
+    if (not G.isCustodian(caller, custodians)) {
+        return #err("Not authorized");
+    };
+   await* tallyService.fetchProposalsAndUpdate();
+   #ok()
   };
 
   // public func testTerminateProposal(proposalId : Nat64) : async Result.Result<(), Text>{
   //   fakeGovernanceService.terminateProposal(proposalId);
   // };
 
-  public func testFetchProposalsAndUpdate() : async (){
+  public shared({caller}) func testFetchProposalsAndUpdate() : async Result.Result<(), Text>{
+    if (not G.isCustodian(caller, custodians)) {
+        return #err("Not authorized");
+    };
+
     await* tallyService.fetchProposalsAndUpdate();
+    #ok()
   };
 
   // public func testAddMockPendingProposal(id : ?Nat64) : async Nat64{
@@ -301,11 +310,14 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
   //    }
   // };
 
-  public func testSetLowestActiveId(canisterId: Text, id : ?Nat64) : async Result.Result<(), Text> {
+  public shared({caller}) func testSetLowestActiveId(canisterId: Text, id : ?Nat64) : async Result.Result<(), Text> {
+    if (not G.isCustodian(caller, custodians)) {
+        return #err("Not authorized");
+    };
     let tc = Map.get(trackerData.trackedCanisters, thash, canisterId);
     switch(tc) {
       case(?e){
-        e.lowestActiveProposalId := id;
+        trackerRepository.setLowestActiveId(e, id);
         #ok()
       };
       case(_){
@@ -355,10 +367,11 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     logService.getLogs(filter);
   };
 
-  public func clearLogs() : async Result.Result<(), Text> {
-    // if (not G.isCustodian(caller, custodians)) {
-    //   return #err("Not authorized");
-    // };
+  public shared ({ caller }) func clearLogs() : async Result.Result<(), Text> {
+    if (not G.isCustodian(caller, custodians)) {
+      return #err("Not authorized");
+    };
+
     logService.clearLogs();
     #ok()
   };

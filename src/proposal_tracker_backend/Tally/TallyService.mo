@@ -484,16 +484,18 @@ module {
             //init proposal map for governance id if it doesnt exist
             let proposalMap = Utils.getElseCreate(tallyModel.proposals, thash, governanceId,  Map.new<ProposalId, Proposal>());
             var settledProposals = List.nil<Proposal>();
+            logService.logInfo("New Proposals: " # Nat.toText(newProposals.size()) # " Changed Proposals: " #  Nat.toText(changedProposals.size()), ?"[update]");
             //add new proposals to the map
             for(proposal in Array.vals(newProposals)) {
-                let isSettled = isProposalSettled(proposal);
+                let _isSettled = isProposalSettled(proposal);
                 let settledTimestamp : ?Time.Time = null;
-                if(isSettled) {
+                if(_isSettled) {
                     let settledTimestamp = ?Time.now();
                 };
-                let p = {id = proposal.id; isSettled = isSettled; settledTimestamp = settledTimestamp; topicId = proposal.topicId; ballots = Map.new<NeuronId, NeuronVote>()};
+                let p = {id = proposal.id; isSettled = _isSettled; settledTimestamp = settledTimestamp; topicId = proposal.topicId; ballots = Map.new<NeuronId, NeuronVote>()};
                 Map.set(proposalMap, n64hash, proposal.id,  p);
-                if(isSettled) {
+                if(_isSettled) {
+                    logService.logInfo("Proposal settled: " # Nat64.toText(proposal.id), ?"[update]");
                     settledProposals := List.push(p, settledProposals);
                 };
             };
@@ -501,6 +503,7 @@ module {
             //update settled proposals
             for(proposal in Array.vals(changedProposals)) {
                 if(isProposalSettled(proposal)) {
+                    logService.logInfo("Proposal settled: " # Nat64.toText(proposal.id), ?"[update]");
                     switch(Map.get(proposalMap, n64hash, proposal.id)){
                         case(?p){
                             Map.set(proposalMap, n64hash, proposal.id, {p with isSettled = true; settledTimestamp = ?Time.now()});
@@ -643,7 +646,7 @@ module {
                     continue l;
                 };
                 
-                //TODO: what if more than 100 proposal have been created? intersect neuronBallots with proposals and check size.
+                //what if more than 100 proposal have been created? intersect neuronBallots with proposals and check size.
                 switch(Map.get(proposal.ballots, thash, neuronId)){
                     case(?vote) {
                         if(vote == #Pending){
