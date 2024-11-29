@@ -293,6 +293,17 @@ module {
             // };
         };
 
+        public func setLowestActiveId(governanceData : TT.GovernanceData, lowestId : ?PT.ProposalId) : () {
+            for (id in Map.keys(governanceData.proposalsById)) {
+                //remove from active set all proposals with id greater than lowestId
+                // if id is null then alla removed
+                if(id < Option.get(lowestId, id + 1) and Map.has(governanceData.activeProposalsSet, n64hash, id)){
+                    ignore Map.remove(governanceData.activeProposalsSet, n64hash, id);
+                };
+            };
+            governanceData.lowestActiveProposalId := lowestId;
+        };
+
         public func deleteProposal(governanceData : TT.GovernanceData, id : PT.ProposalId) : Result.Result<(), Text> {
             let #ok(p) = Utils.optToRes(Map.remove(governanceData.proposalsById, n64hash, id))
             else {
@@ -363,9 +374,9 @@ module {
         };
 
         func isProposalSettled(proposal : PT.Proposal) : Bool {
-            logService.logInfo("Proposal settled: " # Nat64.toText(proposal.id), ?"[TrackerRepository:isProposalSettled]");
             switch(proposal.rewardStatus) {
                 case(#ReadyToSettle or #Settled){
+                    logService.logInfo("Proposal settled: " # Nat64.toText(proposal.id), ?"[TrackerRepository:isProposalSettled]");
                     return true;
                 };
                 case(_){
