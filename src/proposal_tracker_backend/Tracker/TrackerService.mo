@@ -63,24 +63,25 @@ module {
                     includeStatus = [];
                 });
 
-                let #ok(newData) = res
-                else {
-                    logService.logError("Error getting proposals", ?"[TrackerService::update]");
-                    continue timerUpdate;
-                };
+                switch(res){
+                    case(#ok(newData)){
+                        //Cleanup proposals if required, expired proposals are purged on the following tick to ensure they have been notified.
+                        performCleanupStrategy(governanceData);
 
-                //Cleanup proposals if required, expired proposals are purged on the following tick to ensure they have been notified.
-                performCleanupStrategy(governanceData);
+                        let #ok(newProposals, updatedProposals) = repository.processAndUpdateProposals(governanceData, PM.mapGetProposals(newData.proposal_info))
+                        else{
+                            logService.logError("Error getting proposals processAndUpdateProposals", ?"[TrackerService::update]");
+                            continue timerUpdate;
+                        };
 
-                let #ok(newProposals, updatedProposals) = repository.processAndUpdateProposals(governanceData, PM.mapGetProposals(newData.proposal_info))
-                else{
-                    logService.logError("Error getting proposals processAndUpdateProposals", ?"[TrackerService::update]");
-                    continue timerUpdate;
-                };
-
-                //run job callback
-                await* cb(canisterId, newProposals, updatedProposals);
-                return;
+                        //run job callback
+                        await* cb(canisterId, newProposals, updatedProposals);
+                    };
+                    case(#err(e)){
+                        logService.logError("Error getting proposals: " # e, ?"[TrackerService::update]");
+                        continue timerUpdate;
+                    };
+                }
             };
 
         };
