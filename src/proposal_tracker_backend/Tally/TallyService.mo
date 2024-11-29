@@ -484,6 +484,7 @@ module {
             //init proposal map for governance id if it doesnt exist
             let proposalMap = Utils.getElseCreate(tallyModel.proposals, thash, governanceId,  Map.new<ProposalId, Proposal>());
             var settledProposals = List.nil<Proposal>();
+            logService.logInfo("New Proposals: " # Nat.toText(newProposals.size()) # " Changed Proposals: " #  Nat.toText(changedProposals.size()), ?"[update]");
             //add new proposals to the map
             for(proposal in Array.vals(newProposals)) {
                 let _isSettled = isProposalSettled(proposal);
@@ -645,7 +646,7 @@ module {
                     continue l;
                 };
                 
-                //TODO: what if more than 100 proposal have been created? intersect neuronBallots with proposals and check size.
+                //what if more than 100 proposal have been created? intersect neuronBallots with proposals and check size.
                 switch(Map.get(proposal.ballots, thash, neuronId)){
                     case(?vote) {
                         if(vote == #Pending){
