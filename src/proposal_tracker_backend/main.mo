@@ -293,7 +293,7 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
     let tc = Map.get(trackerData.trackedCanisters, thash, canisterId);
     switch(tc) {
       case(?e){
-        e.lowestActiveProposalId := id;
+        trackerRepository.setLowestActiveId(e, id);
         #ok()
       };
       case(_){
