@@ -213,6 +213,15 @@ module {
             Map.get(tallyModel.talliesById, thash, tallyId);
         };
 
+        public func getTallies() : [TallyData] {
+            let buf = Buffer.Buffer<TallyData>(Map.size(tallyModel.talliesById));
+
+            for((_, tally) in Map.entries(tallyModel.talliesById)){
+                buf.add(tally);
+            };
+            Buffer.toArray(buf);
+        };
+
         func deleteNeuron(governanceId : GovernanceId, neuronId : NeuronId) : () {
             switch(Map.get(tallyModel.neurons, thash, governanceId)){
                 case(?neuronMap){

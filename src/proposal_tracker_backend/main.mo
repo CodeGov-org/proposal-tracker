@@ -110,6 +110,10 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
        }
     };
 
+    // public query func getTallies() : async [TallyTypes.TallyInfo] {
+    //   tallyService.getTallies();
+    // };
+
     public shared ({ caller }) func deleteTally(tallyId : TallyTypes.TallyId) : async Result.Result<(), Text> {
       if (not G.isCustodian(caller, custodians)) {
         return #err("Not authorized");
