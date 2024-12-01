@@ -164,6 +164,7 @@ module {
                         };
 
                         if(check){
+                            logService.logInfo("Deleting proposal: " # Nat64.toText(p.id), ?"[TrackerService::performCleanupStrategy]");
                             ignore repository.deleteProposal(governanceData, p.id);
                         }
                     }
