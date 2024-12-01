@@ -191,28 +191,10 @@ module {
             let node = LinkedList.Node<PT.Proposal>(proposal);
             Map.set(governanceData.proposalsById, n64hash, proposal.id, node);
             LinkedList.append_node(governanceData.proposals, node);
-            // switch(Map.get(governanceData.proposalsByTopic, i32hash, proposal.topicId)){
-            //     case(?v){
-            //         LinkedList.append_node(v, LinkedList.Node<PT.Proposal>(proposal));
-            //     };
-            //     case (_) {
-            //         let list = LinkedList.LinkedList<PT.Proposal>();
-            //         LinkedList.append_node(list, LinkedList.Node<PT.Proposal>(proposal));
-            //         Map.set(governanceData.proposalsByTopic, i32hash, proposal.topicId, list);
-            //     }
-            // };
-
             //occasionally a proposal may get here already executed, if so dont add to active list
             if(not isProposalSettled(proposal)){
                 ignore Map.add(governanceData.activeProposalsSet, n64hash, proposal.id, ());
             };
-            // switch(proposal.status){
-            //     case(#Executed(v)){};
-            //     case(_){
-            //         ignore Map.add(governanceData.activeProposalsSet, n64hash, proposal.id, ());
-            //     };
-            // };
-
 
             switch(governanceData.lastProposalId){
                 case(?lastProposalId){
@@ -264,33 +246,6 @@ module {
                 };
                 governanceData.lowestActiveProposalId := lowestId;
             };
-            // switch(proposal.status){
-            //     case(#Executed(e)){
-            //         ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
-
-            //         var lowestId : ?PT.ProposalId = null;
-            //         for (id in Map.keys(governanceData.proposalsById)) {
-            //             //on first iter lowestId is null, so this will always be true
-            //             if(id < Option.get(lowestId, id + 1)){
-            //                 lowestId := ?id;
-            //             };
-            //         };
-            //         governanceData.lowestActiveProposalId := lowestId;
-            //     };
-            //     case(#Failed){
-            //         ignore Map.remove(governanceData.activeProposalsSet, n64hash, proposal.id);
-
-            //         var lowestId : ?PT.ProposalId = null;
-            //         for (id in Map.keys(governanceData.proposalsById)) {
-            //             //on first iter lowestId is null, so this will always be true
-            //             if(id < Option.get(lowestId, id + 1)){
-            //                 lowestId := ?id;
-            //             };
-            //         };
-            //         governanceData.lowestActiveProposalId := lowestId;
-            //     };
-            //     case(_){};
-            // };
         };
 
         public func setLowestActiveId(governanceData : TT.GovernanceData, lowestId : ?PT.ProposalId) : () {
@@ -311,12 +266,6 @@ module {
             };
 
             LinkedList.remove_node(governanceData.proposals, p);
-
-            // let #ok(t) = optToRes(Map.remove(governanceData.proposalsByTopic, i32hash, p.topicId))
-            // else {
-            //     return #err("Proposal topic not found");
-            // };
-            // LinkedList.remove_node(t, LinkedList.Node<PT.Proposal>(p));
 
             //TODO: it assumes list is ordered but it isnt guaranteed
             switch((governanceData.proposals._head, governanceData.proposals._tail)){
