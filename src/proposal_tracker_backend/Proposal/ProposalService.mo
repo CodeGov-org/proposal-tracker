@@ -15,7 +15,6 @@ module{
     let BATCH_SIZE_LIMIT = 50;
     let NNS_GOVERNANCE_ID = "rrkah-fqaaa-aaaaa-aaaaq-cai";
 
-    //todo fix this
     public class ProposalService(governanceService : GS.GovernanceService, logService : LT.LogService){
 
 
