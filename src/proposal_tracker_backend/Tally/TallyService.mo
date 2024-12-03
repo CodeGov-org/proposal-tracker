@@ -506,8 +506,9 @@ module {
                     logService.logInfo("Proposal settled: " # Nat64.toText(proposal.id), ?"[update]");
                     switch(Map.get(proposalMap, n64hash, proposal.id)){
                         case(?p){
-                            Map.set(proposalMap, n64hash, proposal.id, {p with isSettled = true; settledTimestamp = ?Time.now()});
-                            settledProposals := List.push(p, settledProposals);
+                            let updatedProposal = {p with isSettled = true; settledTimestamp = ?Time.now()};
+                            Map.set(proposalMap, n64hash, proposal.id, updatedProposal);
+                            settledProposals := List.push(updatedProposal, settledProposals);
                         };
                         case(_){
                             logService.logError("Error getting from proposalMap: " # governanceId, ?"[update]");
