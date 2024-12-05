@@ -191,6 +191,7 @@ module {
             let node = LinkedList.Node<PT.Proposal>(proposal);
             Map.set(governanceData.proposalsById, n64hash, proposal.id, node);
             LinkedList.append_node(governanceData.proposals, node);
+
             //occasionally a proposal may get here already executed, if so dont add to active list
             if(not isProposalSettled(proposal)){
                 ignore Map.add(governanceData.activeProposalsSet, n64hash, proposal.id, ());
@@ -205,7 +206,6 @@ module {
                 case(_){
                     governanceData.lastProposalId := ?proposal.id;
                 };
-
             };
 
             //init lowestProposalId when it is null on first run or update it in case we are syncing backwards
@@ -268,6 +268,7 @@ module {
             LinkedList.remove_node(governanceData.proposals, p);
 
             //TODO: it assumes list is ordered but it isnt guaranteed
+            //check it is actually ordered
             switch((governanceData.proposals._head, governanceData.proposals._tail)){
                 case((?h,?t)) {
                     governanceData.lowestProposalId := ?h.data.id;
@@ -293,8 +294,8 @@ module {
                     case (?v) {
                         //existing proposal, check if state changed
                         if(isDifferentState(pa, v.data)){
-                            updatedProposals.add(PM.proposalToAPI(v.data));
                             updateProposal(governanceData, pa);
+                            updatedProposals.add(PM.proposalToAPI(v.data));
                         };
                     };
                     case (_) {
