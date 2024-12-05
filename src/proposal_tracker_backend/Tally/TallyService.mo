@@ -486,6 +486,7 @@ module {
                     updateNeuronTopics(tally.governanceCanister, neuronId, removedTopics, addedTopics);
                 } else {
                     //neuron is new, add it
+                    Map.set(tally.neurons, thash, neuronId, ());
                     let neuronMap = Utils.getElseCreate(tallyModel.neurons, thash, tally.governanceCanister , Map.new<NeuronId, NeuronData>());
                     let tallyByNeuronMap = Utils.getElseCreate(tallyModel.talliesByNeuron, thash, tally.governanceCanister, Map.new<NeuronId, List.List<TallyData>>());
                     switch(Map.get(neuronMap, thash, neuronId)){
