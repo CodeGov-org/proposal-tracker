@@ -51,11 +51,16 @@ module {
         topics : Map.Map<TopicId, Nat>;
     };
 
+    type NeuronDataAPI = {
+        id : NeuronId;
+        topics : [{id: TopicId; count : Nat}];
+    };
+
     type TallyData = { 
         id : TallyId;
         alias : ?Text;
         governanceCanister : Text;
-        var topics : Map.Map<TopicId, ()>;
+        var topics : Map.Map<TopicId, ()>; //todo probably var can be removed
         var neurons : Map.Map<NeuronId, ()>;
     };
 
@@ -209,8 +214,73 @@ module {
             #ok(tally.id)
         };
 
+        public func getTallyAPI(tallyId : TallyId) : ?TallyTypes.TallyDataAPI {
+            switch(Map.get(tallyModel.talliesById, thash, tallyId)){
+                case(?tally){
+                    return ?tallyDataToAPI(tally);
+                };
+                case(_){null};
+            };
+        };
+
         public func getTally(tallyId : TallyId) : ?TallyData {
             Map.get(tallyModel.talliesById, thash, tallyId);
+        };
+
+        public func getTallies() : [TallyTypes.TallyDataAPI] {
+            var tallies = Buffer.Buffer<TallyTypes.TallyDataAPI>(Map.size(tallyModel.talliesById));
+            for(tally in Map.vals(tallyModel.talliesById)){
+                tallies.add(tallyDataToAPI(tally));
+            };
+            Buffer.toArray(tallies);
+        };
+
+        public func getNeurons() : Text {
+            var neurons = "";
+            for (neuron in Map.vals(tallyModel.neurons)) {
+                neurons := neurons # debug_show(neuron) # "\n";
+            };
+            neurons
+        };
+
+        public func getNeuronInfo(governanceId : GovernanceId, neuronId : NeuronId) : Result.Result<{neuron : NeuronDataAPI; tallies : [TallyId]}, Text> {
+            //var neuron : NeuronDataAPI = {
+            switch(Map.get(tallyModel.neurons, thash, governanceId)){
+                case(?neuronMap){
+                    switch(Map.get(neuronMap, thash, neuronId)){
+                        case(?neuron){
+                            switch(Map.get(tallyModel.talliesByNeuron, thash, governanceId)){
+                                case(?tallies){
+                                    switch(Map.get(tallies, thash, neuronId)){
+                                        case(?neuronTallies){
+                                            let sharedNeuron = neuronToNeuronDataAPI(neuron);
+                                            let tallies = List.map<TallyData, TallyId>(neuronTallies, func(tally){tally.id});
+
+                                            #ok({neuron = sharedNeuron; tallies = List.toArray(tallies)});
+                                        };
+                                        case(_){
+                                            return #err("No tallies in talliesByNeuron for this neuron, this should not happen");
+                                        };
+                                    };
+                                };
+                                case(_){
+                                    return #err("No tallies for this governance id, this should not happen");
+                                };
+                            };
+
+
+                        };
+                        case(_){
+                            return #err("Neuron not found");
+                        };
+                    };
+                };
+                case(_){
+                    return #err("Governance not found");
+                };
+            };
+
+
         };
 
         func deleteNeuron(governanceId : GovernanceId, neuronId : NeuronId) : () {
@@ -309,6 +379,56 @@ module {
 
         // };
 
+        public func addNeuronToTally(tallyId : TallyId, neuronId : NeuronId) : Result.Result<(), Text> {
+            if(updateState == #Running){
+                return #err("Tallies are being updated, deleting could cause issues with global state");
+            };
+
+            let #ok(tally) = Utils.optToRes(getTally(tallyId)) else {return #err("Tally not found")};
+
+            if(Map.has(tally.neurons, thash, neuronId)){
+                    return #err("Neuron already added to tally");
+            } else {
+                //neuron is new, add it
+                Map.set(tally.neurons, thash, neuronId, ());
+                let neuronMap = Utils.getElseCreate(tallyModel.neurons, thash, tally.governanceCanister , Map.new<NeuronId, NeuronData>());
+                let tallyByNeuronMap = Utils.getElseCreate(tallyModel.talliesByNeuron, thash, tally.governanceCanister, Map.new<NeuronId, List.List<TallyData>>());
+                switch(Map.get(neuronMap, thash, neuronId)){
+                    case(?neuron) {
+                        for(topic in Map.keys(tally.topics)){
+                            switch(Map.get(neuron.topics, i32hash, topic)){
+                                case(?topicData){
+                                    Map.set(neuron.topics, i32hash, topic, topicData + 1);
+                                };
+                                case(_){
+                                    Map.set(neuron.topics, i32hash, topic, 1);
+                                };
+                            };
+                        };
+                    };
+                    case(_){
+                        let topicMap = Map.new<TopicId, Nat>();
+                        for(topic in Map.keys(tally.topics)){
+                            Map.set(topicMap, i32hash, topic, 1);
+                        };
+                        Map.set(neuronMap, thash, neuronId, {id = neuronId; topics = topicMap;});
+                    };
+                };
+
+                switch(Map.get(tallyByNeuronMap, thash, neuronId)){ 
+                    case(?tallies) {
+                        Map.set(tallyByNeuronMap, thash, neuronId, List.push(tally, tallies));
+                    };
+                    case(_){
+                        let tallyList = List.make<TallyData>(tally);
+                        Map.set(tallyByNeuronMap, thash, neuronId, tallyList);
+                    };
+                };
+            };
+            
+            #ok()
+        };
+
         public func updateTally(tallyId : TallyId, newTally : {topics : [TopicId]; neurons : [NeuronId] }) : Result.Result<(), Text> {
             if(updateState == #Running){
                 return #err("Tallies are being updated, deleting could cause issues with global state");
@@ -401,7 +521,7 @@ module {
                         };
                     };
 
-                    };
+                };
             };
 
             tally.topics := topicSet;
@@ -889,6 +1009,38 @@ module {
                         return List.toArray(l);
                     });
         };
+
+        func tallyDataToAPI(tally : TallyData) : TallyTypes.TallyDataAPI {
+            let neuronBuffer = Buffer.Buffer<TallyTypes.NeuronId>(0);
+            let topicBufer = Buffer.Buffer<Int32>(0);
+            for(topic in Map.keys(tally.topics)){
+                topicBufer.add(topic);
+            };
+
+            for(neuron in Map.keys(tally.neurons)){
+                neuronBuffer.add(neuron);
+            };
+
+            {
+                tallyId = tally.id;
+                alias = tally.alias;
+                governanceCanister = tally.governanceCanister;
+                topics = Buffer.toArray(topicBufer);
+                neurons= Buffer.toArray(neuronBuffer);
+            }
+        };
+
+        func neuronToNeuronDataAPI(neuron : NeuronData) : NeuronDataAPI {
+            let buf = Buffer.Buffer<{id: TopicId; count : Nat}>(Map.size(neuron.topics));
+            for ((topicId, count) in Map.entries(neuron.topics)) {
+                buf.add({id = topicId; count = count});
+            };
+            
+            {
+                id = neuron.id;
+                topics = Buffer.toArray(buf);
+            };
+        }; 
 
         public func textToNat64(t : Text) : ?Nat64 {
             switch (Nat.fromText(t)) {

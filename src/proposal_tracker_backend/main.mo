@@ -44,43 +44,43 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
   stable let tallyModel = TallyService.initTallyModel();
   let tallyService = TallyService.TallyService(tallyModel, logService, governanceService, trackerService);
 
-  system func postupgrade() {
-    if(Option.isSome(tallyModel.timerId)){
-        tallyModel.timerId := ?Timer.recurringTimer<system>(#seconds(Option.get(tallyModel.tickrateInSeconds, 5 * 60)), func() : async () {
-        logService.logInfo("Running timer", null);
-        await* tallyService.fetchProposalsAndUpdate()
-      });
-    }
-  };
+    system func postupgrade() {
+      if(Option.isSome(tallyModel.timerId)){
+          tallyModel.timerId := ?Timer.recurringTimer<system>(#seconds(Option.get(tallyModel.tickrateInSeconds, 5 * 60)), func() : async () {
+          logService.logInfo("Running timer", null);
+          await* tallyService.fetchProposalsAndUpdate()
+        });
+      }
+    };
 
-  public shared ({ caller }) func initTimer(tickrateInSeconds : ?Nat) : async Result.Result<(), Text>{
-    if (not G.isCustodian(caller, custodians)) {
+    public shared ({ caller }) func initTimer(tickrateInSeconds : ?Nat) : async Result.Result<(), Text>{
+      if (not G.isCustodian(caller, custodians)) {
+          return #err("Not authorized");
+      };
+
+      await tallyService.init(tickrateInSeconds);
+    };
+
+    public shared ({ caller }) func cancelTimer() : async Result.Result<(), Text>{
+      if (not G.isCustodian(caller, custodians)) {
         return #err("Not authorized");
+      };
+      await tallyService.cancelTimer();
     };
 
-    await tallyService.init(tickrateInSeconds);
-  };
-
-  public shared ({ caller }) func cancelTimer() : async Result.Result<(), Text>{
-    if (not G.isCustodian(caller, custodians)) {
-      return #err("Not authorized");
+    public func getTimerTickrate() : async ?Nat {
+      tallyModel.tickrateInSeconds
     };
-    await tallyService.cancelTimer();
-  };
 
-  public func getTimerTickrate() : async ?Nat {
-    tallyModel.tickrateInSeconds
-  };
-
-   public shared ({ caller }) func addTally(args : TallyService.AddTallyArgs) : async Result.Result<TallyTypes.TallyId, Text>{
-    if (not G.isCustodian(caller, custodians)) {
-      return #err("Not authorized");
+    public shared ({ caller }) func addTally(args : TallyService.AddTallyArgs) : async Result.Result<TallyTypes.TallyId, Text>{
+      if (not G.isCustodian(caller, custodians)) {
+        return #err("Not authorized");
+      };
+      await* tallyService.addTally(args)
     };
-    await* tallyService.addTally(args)
-   };
 
-   public shared ({ caller }) func getTally(tallyId : TallyTypes.TallyId) : async Result.Result<TallyTypes.TallyInfo, Text> {
-       switch(tallyService.getTally(tallyId)){
+    public shared ({ caller }) func getTally(tallyId : TallyTypes.TallyId) : async Result.Result<TallyTypes.TallyDataAPI, Text> {
+      switch(tallyService.getTally(tallyId)){
         case(?t){
           let neuronBuffer = Buffer.Buffer<TallyTypes.NeuronId>(0);
           let topicBufer = Buffer.Buffer<Int32>(0);
@@ -95,6 +95,7 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
           #ok({
               tallyId = t.id;
               alias = t.alias;
+              governanceCanister = t.governanceCanister;
               topics = Buffer.toArray(topicBufer);
               neurons= Buffer.toArray(neuronBuffer);
           })
@@ -102,7 +103,19 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
         case(_){
           #err("Tally not found")
         };
-       }
+      }
+    };
+
+    public func getTallies() : async [TallyTypes.TallyDataAPI] {
+      tallyService.getTallies()
+    };
+
+    public func getNeuronInfo(governanceId : Text, neuronId : TallyTypes.NeuronId) : async Result.Result<{neuron : TallyTypes.NeuronDataAPI; tallies : [TallyTypes.TallyId]}, Text> {
+      tallyService.getNeuronInfo(governanceId, neuronId)
+    };
+
+    public func getNeurons() : async Text {
+      tallyService.getNeurons()
     };
 
     public shared ({ caller }) func deleteTally(tallyId : TallyTypes.TallyId) : async Result.Result<(), Text> {
@@ -113,21 +126,29 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
       tallyService.deleteTally(tallyId)
     };
 
-  public shared ({ caller }) func updateTally(tallyId : TallyTypes.TallyId, newTally : {topics : [TallyTypes.TopicId]; neurons : [TallyTypes.NeuronId] }) : async Result.Result<(), Text> {
-    if (not G.isCustodian(caller, custodians)) {
-      return #err("Not authorized");
+    public shared ({ caller }) func addNeuronToTally(tallyId : TallyTypes.TallyId, neuronId : TallyTypes.NeuronId) : async Result.Result<(), Text>{
+      if (not G.isCustodian(caller, custodians)) {
+        return #err("Not authorized");
+      };
+
+      tallyService.addNeuronToTally(tallyId, neuronId)
     };
 
-    tallyService.updateTally(tallyId, newTally)
-  };
+    public shared ({ caller }) func updateTally(tallyId : TallyTypes.TallyId, newTally : {topics : [TallyTypes.TopicId]; neurons : [TallyTypes.NeuronId] }) : async Result.Result<(), Text> {
+      if (not G.isCustodian(caller, custodians)) {
+        return #err("Not authorized");
+      };
 
-  public shared ({ caller }) func getSubscribersByTallyId(tallyId : TallyTypes.TallyId) : async [Principal] {
-    tallyService.getSubscribersByTallyId(tallyId)
-  };
+      tallyService.updateTally(tallyId, newTally)
+    };
 
-  public shared ({ caller }) func getTalliesByPrincipal(principal : Principal) : async Result.Result<[{id : Text; alias : ?Text}], Text> {
-    tallyService.getTalliesByPrincipal(principal)
-  };
+    public shared ({ caller }) func getSubscribersByTallyId(tallyId : TallyTypes.TallyId) : async [Principal] {
+      tallyService.getSubscribersByTallyId(tallyId)
+    };
+
+    public shared ({ caller }) func getTalliesByPrincipal(principal : Principal) : async Result.Result<[{id : Text; alias : ?Text}], Text> {
+      tallyService.getTalliesByPrincipal(principal)
+    };
   
    public shared ({ caller }) func addSubscriber(subscriber : Principal, tallyId : TallyTypes.TallyId) : async Result.Result<(), Text> {
     if (not G.isCustodian(caller, custodians)) {
