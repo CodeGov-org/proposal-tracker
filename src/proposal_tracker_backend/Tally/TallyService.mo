@@ -892,7 +892,7 @@ module {
 
             if(approves > neuronNumber / 2){
                 tallyVote := #Yes;
-            } else if (rejects > neuronNumber / 2) {
+            } else if (rejects >= neuronNumber / 2) {
                 tallyVote := #No;
             } else if (proposal.isSettled){
                 tallyVote := #Abstained;
