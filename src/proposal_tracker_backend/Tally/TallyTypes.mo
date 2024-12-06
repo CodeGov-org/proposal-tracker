@@ -54,9 +54,10 @@ public type Vote = {
     governanceCanister : Text;
   };
 
-  public type TallyInfo = {
+  public type TallyDataAPI = {
     tallyId : TallyId;
     alias : ?Text;
+    governanceCanister : Text;
     topics : [TopicId];
     neurons : [NeuronId];
   };
@@ -71,6 +72,11 @@ public type Vote = {
 
   public type Subscriber = actor {
     tallyUpdate : shared ([TallyFeed]) -> async ();
+  };
+
+  public type NeuronDataAPI = {
+    id : NeuronId;
+    topics : [{id: TopicId; count : Nat}];
   };
 
   public type TallyCanister = actor {
