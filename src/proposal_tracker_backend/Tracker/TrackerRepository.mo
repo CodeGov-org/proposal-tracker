@@ -285,7 +285,7 @@ module {
         };
 
         public func processAndUpdateProposals(governanceData : TT.GovernanceData, _proposals: [PT.Proposal]) : Result.Result<([PT.ProposalAPI], [PT.ProposalAPI]), Text> {
-            let newProposal = Buffer.Buffer<PT.ProposalAPI>(50);
+            let newProposals = Buffer.Buffer<PT.ProposalAPI>(50);
             let updatedProposals = Buffer.Buffer<PT.ProposalAPI>(50);
             let sortedProposals = Array.sort(_proposals, compareIds);
 
@@ -301,12 +301,12 @@ module {
                     case (_) {
                         //doesnt exist, add it
                         addProposal(governanceData, pa);
-                        newProposal.add(PM.proposalToAPI(pa));
+                        newProposals.add(PM.proposalToAPI(pa));
                     }
                 }
               };
 
-            #ok(Buffer.toArray<PT.ProposalAPI>(newProposal), Buffer.toArray<PT.ProposalAPI>(updatedProposals));
+            #ok(Buffer.toArray<PT.ProposalAPI>(newProposals), Buffer.toArray<PT.ProposalAPI>(updatedProposals));
          };
 
         func isDifferentState(p1 : PT.Proposal, p2 : PT.Proposal) : Bool {

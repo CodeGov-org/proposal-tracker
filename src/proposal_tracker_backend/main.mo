@@ -114,10 +114,6 @@ shared ({ caller }) actor class ProposalTrackerBackend() = {
       tallyService.getNeuronInfo(governanceId, neuronId)
     };
 
-    public func getNeurons() : async Text {
-      tallyService.getNeurons()
-    };
-
     public shared ({ caller }) func deleteTally(tallyId : TallyTypes.TallyId) : async Result.Result<(), Text> {
       if (not G.isCustodian(caller, custodians)) {
         return #err("Not authorized");

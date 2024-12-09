@@ -235,14 +235,6 @@ module {
             Buffer.toArray(tallies);
         };
 
-        public func getNeurons() : Text {
-            var neurons = "";
-            for (neuron in Map.vals(tallyModel.neurons)) {
-                neurons := neurons # debug_show(neuron) # "\n";
-            };
-            neurons
-        };
-
         public func getNeuronInfo(governanceId : GovernanceId, neuronId : NeuronId) : Result.Result<{neuron : NeuronDataAPI; tallies : [TallyId]}, Text> {
             //var neuron : NeuronDataAPI = {
             switch(Map.get(tallyModel.neurons, thash, governanceId)){
@@ -323,10 +315,14 @@ module {
                                 };
                             }
                         };
-                        case(_){};
+                        case(_){
+                            logService.logError("Error getting neuron from tallyModel.neurons for neuron id: " # neuronId, ?"[updateNeuronTopics]");
+                        };
                     };
                 };
-                case(_){};
+                case(_){
+                    logService.logError("Error getting neurons from tallyModel.neurons for canister id: " # governanceId, ?"[updateNeuronTopics]");
+                };
             };
         };
 
@@ -374,10 +370,6 @@ module {
 
             #ok()
         };
-
-        // func updateOrDeleteNeuron(neuronId : NeuronId) : () {
-
-        // };
 
         public func addNeuronToTally(tallyId : TallyId, neuronId : NeuronId) : Result.Result<(), Text> {
             if(updateState == #Running){
@@ -454,11 +446,11 @@ module {
             };
 
             //if the neuron is not in the new list it has to be removed from the tally neurons and the neuron itself has to be updated
-            for(neuronTally in Map.keys(tally.neurons)){
-                if(not Map.has(neuronSet, thash, neuronTally)){
+            for(neuronId in Map.keys(tally.neurons)){
+                if(not Map.has(neuronSet, thash, neuronId)){
                     switch(Map.get(tallyModel.talliesByNeuron, thash, tally.governanceCanister)){
                         case(?neurons){
-                            for(neuronId in Map.keys(neurons)){
+                            //for(neuronId in Map.keys(neurons)){
                                 switch(Map.get(neurons, thash, neuronId)){
                                     case(?tallies){
                                         let newList = List.filter(tallies, func(t : TallyData) : Bool {t.id != tallyId});
@@ -470,11 +462,15 @@ module {
                                             updateNeuronTopics(tally.governanceCanister, neuronId, tally.topics, Map.new());
                                         };
                                     };
-                                    case(_){};
+                                    case(_){
+                                        logService.logError("Error getting neuron from talliesByNeuron for neuron id: " # neuronId, ?"[updateTally]");
+                                    };
                                 };
-                            };
+                            //};
                         };
-                        case(_){};
+                        case(_){
+                            logService.logError("Error getting neurons from talliesByNeuron for canister id: " # tally.governanceCanister, ?"[updateTally]");
+                        };
                     };
                 };
             };
@@ -632,7 +628,7 @@ module {
                             settledProposals := List.push(updatedProposal, settledProposals);
                         };
                         case(_){
-                            logService.logError("Error getting from proposalMap: " # governanceId, ?"[update]");
+                            logService.logError("Error getting from proposalMap: " # governanceId # " proposal id: " # Nat64.toText(proposal.id), ?"[update]");
                         };
                     }
                 }
@@ -890,9 +886,9 @@ module {
                 };
             };
 
-            if(approves > neuronNumber / 2){
+            if(approves * 2 > neuronNumber){
                 tallyVote := #Yes;
-            } else if (rejects >= neuronNumber / 2) {
+            } else if (rejects * 2 >= neuronNumber) {
                 tallyVote := #No;
             } else if (proposal.isSettled){
                 tallyVote := #Abstained;
